@@ -14,7 +14,6 @@ import {
   Film,
   Tv,
   X,
-  Pencil,
 } from 'lucide-react'
 import logoImg from '@/assets/logo/streamly-logo.png'
 import iconImg from '@/assets/logo/icon.png'

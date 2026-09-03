@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { EyeOff, Eye, Flag, Loader2, Search, ShieldCheck, Trash2, Undo2 } from 'lucide-react'
+import { EyeOff, Eye, Loader2, Search, Trash2, Undo2 } from 'lucide-react'
 import { fetchAllComments, updateCommentStatus, deleteComment as apiDeleteComment } from '@/lib/api'
 import { cn, timeAgo } from '@/utils/helpers'
 import type { Comment } from '@/types'

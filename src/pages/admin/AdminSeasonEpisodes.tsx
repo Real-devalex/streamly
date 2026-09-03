@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Plus, Trash2, Edit3, ChevronDown, ChevronUp,
-  Loader2, Tv, Save,
+  ArrowLeft, Plus, Trash2, ChevronDown, ChevronUp,
+  Loader2, Save,
 } from 'lucide-react'
 import {
   fetchSeriesById, fetchSeasonsForSeries, createSeason,
-  updateSeason, deleteSeason, createEpisode, updateEpisode,
-  deleteEpisode, addEpisodeDownloadLink,
+  deleteSeason, createEpisode,
+  deleteEpisode,
 } from '@/lib/api'
 import type { Series, Season, Episode } from '@/types'
 

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import {
   CornerDownRight,
   EyeOff,
-  Eye,
   Flag,
   Loader2,
   MessageSquare,

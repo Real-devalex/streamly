@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Compass,
   Edit3,
-  GripVertical,
   Loader2,
   Plus,
   Save,
-  Sparkles,
   Trash2,
   X,
 } from 'lucide-react'
