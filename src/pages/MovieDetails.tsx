@@ -102,7 +102,8 @@ export function MovieDetails() {
         </div>
         <div className="hero-gradient-left absolute inset-0" />
         <div className="hero-gradient-bottom absolute inset-0" />
-        <div className="absolute inset-0 bg-streamly-black/35" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+        <div className="absolute inset-0 bg-streamly-black/25" />
         <div className="film-grain absolute inset-0" />
 
         <div className="relative mx-auto max-w-[1600px] px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-10">

@@ -283,7 +283,7 @@ export interface MovieInput {
   status: 'draft' | 'published' | 'archived'
   featured: boolean
   genreIds: string[]
-  cast: Array<{ castMemberId: string; characterName: string }>
+  cast: Array<{ castMemberId: string; characterName: string; photoUrl?: string }>
   downloadLinks: Array<{ quality: '1080p' | '720p' | '480p'; url: string; fileSizeBytes: number; destinationLabel: string }>
 }
 
@@ -510,6 +510,12 @@ export async function createCastMember(name: string, photoUrl?: string): Promise
   const { data, error } = await supabase.from('cast_members').insert({ name, photo_url: photoUrl ?? null }).select().single()
   if (error || !data) return null
   return mapCastMember(data)
+}
+
+export async function updateCastMemberPhoto(castMemberId: string, photoUrl: string): Promise<void> {
+  if (!isSupabaseConfigured) return
+  if (castMemberId.startsWith('temp-')) return
+  await supabase.from('cast_members').update({ photo_url: photoUrl }).eq('id', castMemberId)
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -884,7 +890,7 @@ export interface SeriesInput {
   status: 'draft' | 'published' | 'archived'
   featured: boolean
   genreIds: string[]
-  cast: Array<{ castMemberId: string; characterName: string }>
+  cast: Array<{ castMemberId: string; characterName: string; photoUrl?: string }>
 }
 
 export async function createSeries(input: SeriesInput): Promise<Series | null> {

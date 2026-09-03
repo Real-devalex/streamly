@@ -24,6 +24,7 @@ import {
   fetchGenres,
   searchCastMembers,
   createCastMember,
+  updateCastMemberPhoto,
   type MovieInput,
 } from '@/lib/api'
 import { cn, slugify } from '@/utils/helpers'
@@ -43,7 +44,7 @@ export function AdminMovieForm() {
   const [selectedGenreIds, setSelectedGenreIds] = useState<Set<string>>(new Set())
 
   // Cast
-  const [movieCast, setMovieCast] = useState<Array<{ castMemberId: string; name: string; characterName: string }>>([])
+  const [movieCast, setMovieCast] = useState<Array<{ castMemberId: string; name: string; characterName: string; photoUrl: string }>>([])
   const [castSearch, setCastSearch] = useState('')
   const [castSearchResults, setCastSearchResults] = useState<Array<{ id: string; name: string }>>([])
 
@@ -89,7 +90,7 @@ export function AdminMovieForm() {
             featured: movie.featured,
           })
           setSelectedGenreIds(new Set(movie.genres.map((g) => g.id)))
-          setMovieCast(movie.cast.map((c) => ({ castMemberId: c.id, name: c.name, characterName: c.characterName ?? '' })))
+          setMovieCast(movie.cast.map((c) => ({ castMemberId: c.id, name: c.name, characterName: c.characterName ?? '', photoUrl: c.photoUrl ?? '' })))
           setDownloadLinks(movie.downloadLinks.map((dl) => ({ quality: dl.quality, url: dl.url, fileSizeBytes: dl.fileSizeBytes ?? 0, destinationLabel: dl.destinationLabel })))
         }
       }
@@ -135,7 +136,7 @@ export function AdminMovieForm() {
     // Try to find existing
     const existing = castSearchResults.find((r) => r.name === name)
     if (existing) {
-      setMovieCast((prev) => [...prev, { castMemberId: existing.id, name: existing.name, characterName: '' }])
+      setMovieCast((prev) => [...prev, { castMemberId: existing.id, name: existing.name, characterName: '', photoUrl: '' }])
       setCastSearch('')
       setCastSearchResults([])
       return
@@ -143,10 +144,10 @@ export function AdminMovieForm() {
     // Create new
     const member = await createCastMember(name)
     if (member) {
-      setMovieCast((prev) => [...prev, { castMemberId: member.id, name: member.name, characterName: '' }])
+      setMovieCast((prev) => [...prev, { castMemberId: member.id, name: member.name, characterName: '', photoUrl: '' }])
     } else {
       // Fallback: use a temp ID for demo mode
-      setMovieCast((prev) => [...prev, { castMemberId: `temp-${Date.now()}`, name, characterName: '' }])
+      setMovieCast((prev) => [...prev, { castMemberId: `temp-${Date.now()}`, name, characterName: '', photoUrl: '' }])
     }
     setCastSearch('')
     setCastSearchResults([])
@@ -154,6 +155,10 @@ export function AdminMovieForm() {
 
   const updateCastCharacter = (index: number, characterName: string) => {
     setMovieCast((prev) => prev.map((c, i) => (i === index ? { ...c, characterName } : c)))
+  }
+
+  const updateCastPhoto = (index: number, photoUrl: string) => {
+    setMovieCast((prev) => prev.map((c, i) => (i === index ? { ...c, photoUrl } : c)))
   }
 
   const removeCastMember = (index: number) => {
@@ -198,8 +203,7 @@ export function AdminMovieForm() {
       rating: form.rating,
       status: form.status,
       featured: form.featured,
-      genreIds: [...selectedGenreIds],
-      cast: movieCast.map((c) => ({ castMemberId: c.castMemberId, characterName: c.characterName })),
+      genreIds: [...selectedGenreIds],                      cast: movieCast.map((c) => ({ castMemberId: c.castMemberId, characterName: c.characterName, photoUrl: c.photoUrl })), 
       downloadLinks: downloadLinks.filter((dl) => dl.url.trim()),
     }
 
@@ -208,6 +212,12 @@ export function AdminMovieForm() {
         await updateMovie(id, input)
       } else {
         await createMovie(input)
+      }
+      // Update cast member photos
+      for (const c of movieCast) {
+        if (c.photoUrl && c.castMemberId && !c.castMemberId.startsWith('temp-')) {
+          await updateCastMemberPhoto(c.castMemberId, c.photoUrl)
+        }
       }
       navigate('/admin/movies')
     } catch {
@@ -539,7 +549,14 @@ export function AdminMovieForm() {
                     onChange={(e) => updateCastCharacter(index, e.target.value)}
                     type="text"
                     placeholder="Character name"
-                    className="h-8 w-40 rounded border border-streamly-border bg-transparent px-3 text-xs text-streamly-text placeholder:text-streamly-text-muted focus:border-streamly-purple/60 focus:outline-none"
+                    className="h-8 w-36 rounded border border-streamly-border bg-transparent px-3 text-xs text-streamly-text placeholder:text-streamly-text-muted focus:border-streamly-purple/60 focus:outline-none"
+                  />
+                  <input
+                    value={member.photoUrl}
+                    onChange={(e) => updateCastPhoto(index, e.target.value)}
+                    type="url"
+                    placeholder="Photo URL"
+                    className="h-8 w-44 rounded border border-streamly-border bg-transparent px-3 text-xs text-streamly-text placeholder:text-streamly-text-muted focus:border-streamly-purple/60 focus:outline-none"
                   />
                   <button
                     type="button"
@@ -607,13 +624,13 @@ export function AdminMovieForm() {
                     </div>
                     <div>
                       <label className="mb-1 block text-[11px] font-semibold text-streamly-text-muted">
-                        <Hash className="inline h-3 w-3" /> File size (bytes)
+                        <Hash className="inline h-3 w-3" /> File size (MB)
                       </label>
                       <input
-                        value={dl.fileSizeBytes || ''}
-                        onChange={(e) => updateDownloadLink(index, 'fileSizeBytes', parseInt(e.target.value) || 0)}
+                        value={dl.fileSizeBytes ? Math.round(dl.fileSizeBytes / 1048576) : ''}
+                        onChange={(e) => updateDownloadLink(index, 'fileSizeBytes', (parseInt(e.target.value) || 0) * 1048576)}
                         type="number"
-                        placeholder="4320000000"
+                        placeholder="1400"
                         className="h-10 w-full rounded border border-streamly-border bg-transparent px-3 text-sm text-streamly-text placeholder:text-streamly-text-muted focus:border-streamly-purple/60 focus:outline-none"
                       />
                     </div>

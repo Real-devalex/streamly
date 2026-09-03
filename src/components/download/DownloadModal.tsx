@@ -86,6 +86,17 @@ export function DownloadModal({ movie, isOpen, onClose }: DownloadModalProps) {
         if (next >= 100) {
           if (timerRef.current) window.clearInterval(timerRef.current)
           setPhase('ready')
+          // Trigger actual file download
+          if (selected?.url) {
+            const a = document.createElement('a')
+            a.href = selected.url
+            a.download = `${movie?.title ?? 'movie'}_${selected.quality}.mp4`
+            a.target = '_blank'
+            a.rel = 'noopener noreferrer'
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+          }
           return 100
         }
         return next
