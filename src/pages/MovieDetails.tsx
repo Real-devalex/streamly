@@ -90,7 +90,7 @@ export function MovieDetails() {
   return (
     <div className="pb-10">
       {/* ══════════ HERO ══════════ */}
-      <section className="relative min-h-[70vh] w-full overflow-hidden">
+      <section className="relative min-h-[70vh] w-full overflow-hidden pt-20">
         {/* Backdrop */}
         <div className="absolute inset-0">
           <img
@@ -101,11 +101,12 @@ export function MovieDetails() {
         </div>
         <div className="hero-gradient-left absolute inset-0" />
         <div className="hero-gradient-bottom absolute inset-0" />
+        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-streamly-black via-streamly-black/70 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
         <div className="absolute inset-0 bg-streamly-black/25" />
         <div className="film-grain absolute inset-0" />
 
-        <div className="relative mx-auto max-w-[1600px] px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-10">
+        <div className="relative mx-auto max-w-[1600px] px-4 pb-16 pt-8 sm:px-6 sm:pt-10 lg:px-10">
           {/* Breadcrumb */}
           <Link
             to="/movies"
