@@ -12,6 +12,7 @@ import { NotFound } from '@/pages/NotFound'
 import { SignIn } from '@/pages/auth/SignIn'
 import { SignUp } from '@/pages/auth/SignUp'
 import { ResetPassword } from '@/pages/auth/ResetPassword'
+import { AdminGuard } from '@/components/auth/AdminGuard'
 import { AdminLayout } from '@/pages/admin/AdminLayout'
 import { Dashboard } from '@/pages/admin/Dashboard'
 import { AdminMovies } from '@/pages/admin/AdminMovies'
@@ -44,19 +45,21 @@ export default function App() {
       <Route path="/auth/signup" element={<SignUp />} />
       <Route path="/auth/reset" element={<ResetPassword />} />
 
-      {/* ── Admin — own sidebar layout ── */}
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="movies" element={<AdminMovies />} />
-        <Route path="movies/new" element={<AdminMovieForm />} />
-        <Route path="movies/edit/:id" element={<AdminMovieForm />} />
-        <Route path="series" element={<AdminSeries />} />
-        <Route path="series/new" element={<AdminSeriesForm />} />
-        <Route path="series/edit/:id" element={<AdminSeriesForm />} />
-        <Route path="series/:id/seasons" element={<AdminSeasonEpisodes />} />
-        <Route path="genres" element={<AdminGenres />} />
-        <Route path="comments" element={<AdminComments />} />
-        <Route path="reports" element={<AdminReports />} />
+      {/* ── Admin — own sidebar layout, protected ── */}
+      <Route element={<AdminGuard />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="movies" element={<AdminMovies />} />
+          <Route path="movies/new" element={<AdminMovieForm />} />
+          <Route path="movies/edit/:id" element={<AdminMovieForm />} />
+          <Route path="series" element={<AdminSeries />} />
+          <Route path="series/new" element={<AdminSeriesForm />} />
+          <Route path="series/edit/:id" element={<AdminSeriesForm />} />
+          <Route path="series/:id/seasons" element={<AdminSeasonEpisodes />} />
+          <Route path="genres" element={<AdminGenres />} />
+          <Route path="comments" element={<AdminComments />} />
+          <Route path="reports" element={<AdminReports />} />
+        </Route>
       </Route>
     </Routes>
   )

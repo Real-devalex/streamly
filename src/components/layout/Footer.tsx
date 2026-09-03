@@ -20,8 +20,6 @@ const columns = [
     links: [
       { label: 'Discussions', to: '/movie/neon-horizon#comments' },
       { label: 'Reactions', to: '/movies?sort=rating' },
-      { label: 'Report content', to: '/admin/reports' },
-      { label: 'Moderators', to: '/admin/comments' },
     ],
   },
   {
