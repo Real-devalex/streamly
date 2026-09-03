@@ -18,7 +18,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { WatchlistButton } from '@/components/ui/WatchlistButton'
 import { useDownload } from '@/context/DownloadContext'
 import { fetchMovieBySlug, fetchRelatedMovies } from '@/lib/api'
-import { cn, formatFileSize, formatRuntime } from '@/utils/helpers'
+import { formatFileSize, formatRuntime } from '@/utils/helpers'
 import type { Movie } from '@/types'
 
 export function MovieDetails() {
