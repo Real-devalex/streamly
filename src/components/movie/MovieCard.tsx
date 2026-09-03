@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Clock, Download, Play, Star } from 'lucide-react'
+import { WatchlistButton } from '@/components/ui/WatchlistButton'
 import type { Movie } from '@/types'
 import { cn, formatRuntime } from '@/utils/helpers'
 
@@ -84,6 +85,9 @@ export function MovieCard({
           <Star className="h-3 w-3 fill-streamly-gold text-streamly-gold" />
           {movie.rating.toFixed(1)}
         </div>
+
+        {/* Watchlist button */}
+        <WatchlistButton movieId={movie.id} size="sm" className="absolute left-3 top-14 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
         {/* Quick action */}
         {onDownload ? (

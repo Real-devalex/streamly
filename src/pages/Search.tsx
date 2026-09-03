@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Film, Search, TrendingUp, X } from 'lucide-react'
+import { Film, Search, TrendingUp } from 'lucide-react'
+import { SearchAutocomplete } from '@/components/ui/SearchAutocomplete'
 import { MovieGrid } from '@/components/movie/MovieGrid'
 import { useDownload } from '@/context/DownloadContext'
 import { searchMoviesOnline, fetchTrendingMovies } from '@/lib/api'
@@ -13,13 +14,9 @@ export function SearchPage() {
   const [params, setParams] = useSearchParams()
   const { openDownload } = useDownload()
   const urlQuery = params.get('q') ?? ''
-  const [input, setInput] = useState(urlQuery)
-  const inputRef = useRef<HTMLInputElement>(null)
   const [results, setResults] = useState<Movie[]>([])
   const [trending, setTrending] = useState<Movie[]>([])
   const [searching, setSearching] = useState(false)
-
-  useEffect(() => { setInput(urlQuery) }, [urlQuery])
 
   // Load trending on mount
   useEffect(() => {
@@ -37,25 +34,7 @@ export function SearchPage() {
     return () => { cancelled = true }
   }, [urlQuery])
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === '/' && document.activeElement !== inputRef.current) {
-        event.preventDefault()
-        inputRef.current?.focus()
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [])
-
   const hasQuery = urlQuery.trim().length > 0
-
-  const submit = (value: string) => {
-    const next = new URLSearchParams(params)
-    if (value.trim()) next.set('q', value.trim())
-    else next.delete('q')
-    setParams(next, { replace: true })
-  }
 
   return (
     <div className="pb-8">
@@ -74,47 +53,19 @@ export function SearchPage() {
             Find your next <span className="gradient-text">obsession</span>
           </h1>
 
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              submit(input)
-            }}
-            className="glass-strong mt-8 flex items-center gap-2 rounded-modal p-2 shadow-[0_40px_100px_-40px_rgba(0,0,0,1)]"
-          >
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-streamly-text-muted" />
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(event) => {
-                  setInput(event.target.value)
-                  submit(event.target.value)
-                }}
-                type="search"
-                autoComplete="off"
-                placeholder='Try "sci-fi", "heist", or a cast member…'
-                aria-label="Search movies"
-                className="h-13 w-full bg-transparent pl-12 pr-10 text-[15px] text-streamly-text placeholder:text-streamly-text-muted focus:outline-none"
-              />
-              {input ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInput('')
-                    submit('')
-                    inputRef.current?.focus()
-                  }}
-                  aria-label="Clear search"
-                  className="absolute right-3 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-streamly-text-muted transition-colors hover:bg-white/8 hover:text-streamly-text"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
-            <button type="submit" className="btn-primary h-13 shrink-0 px-6 text-sm">
-              Search
-            </button>
-          </form>
+          <div className="mt-8">
+            <SearchAutocomplete
+              defaultValue={urlQuery}
+              placeholder='Try "sci-fi", "heist", or a cast member...'
+              autoFocus={!urlQuery}
+              onSearch={(q) => {
+                const next = new URLSearchParams(params)
+                if (q.trim()) next.set('q', q.trim())
+                else next.delete('q')
+                setParams(next, { replace: true })
+              }}
+            />
+          </div>
 
           {!hasQuery ? (
             <div className="mt-6 flex flex-wrap items-center gap-2">
@@ -124,8 +75,9 @@ export function SearchPage() {
                   key={term}
                   type="button"
                   onClick={() => {
-                    setInput(term)
-                    submit(term)
+                    const next = new URLSearchParams(params)
+                    next.set('q', term)
+                    setParams(next, { replace: true })
                   }}
                   className="rounded-full border border-streamly-border bg-white/3 px-3 py-1.5 text-xs font-medium text-streamly-text-secondary transition-all duration-300 hover:-translate-y-0.5 hover:border-streamly-purple/50 hover:text-streamly-text"
                 >

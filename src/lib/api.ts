@@ -1027,3 +1027,70 @@ export async function addEpisodeDownloadLink(episodeId: string, quality: '1080p'
   })
   return !error
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   WATCHLIST / FAVORITES
+   ═══════════════════════════════════════════════════════════════ */
+
+const LOCAL_WATCHLIST_KEY = 'streamly:watchlist'
+
+export async function fetchWatchlist(userId: string): Promise<Movie[]> {
+  if (!isSupabaseConfigured) {
+    const stored = JSON.parse(window.localStorage.getItem(LOCAL_WATCHLIST_KEY) ?? '[]') as string[]
+    return mockMovies.filter((m) => stored.includes(m.id))
+  }
+
+  const { data, error } = await supabase
+    .from('watchlist')
+    .select('movie_id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (error || !data || data.length === 0) return []
+
+  const movieIds = data.map((r) => r.movie_id as string)
+  const { data: movieRows } = await supabase.from('movies').select('*').in('id', movieIds)
+  if (!movieRows) return []
+
+  return Promise.all(movieRows.map((row) => enrichMovie(row)))
+}
+
+export async function isInWatchlist(userId: string, movieId: string): Promise<boolean> {
+  if (!isSupabaseConfigured) {
+    const stored = JSON.parse(window.localStorage.getItem(LOCAL_WATCHLIST_KEY) ?? '[]') as string[]
+    return stored.includes(movieId)
+  }
+
+  const { data } = await supabase
+    .from('watchlist')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('movie_id', movieId)
+    .maybeSingle()
+
+  return Boolean(data)
+}
+
+export async function toggleWatchlist(userId: string, movieId: string): Promise<boolean> {
+  if (!isSupabaseConfigured) {
+    const stored = JSON.parse(window.localStorage.getItem(LOCAL_WATCHLIST_KEY) ?? '[]') as string[]
+    const next = stored.includes(movieId) ? stored.filter((id) => id !== movieId) : [...stored, movieId]
+    window.localStorage.setItem(LOCAL_WATCHLIST_KEY, JSON.stringify(next))
+    return next.includes(movieId)
+  }
+
+  const { data: existing } = await supabase
+    .from('watchlist')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('movie_id', movieId)
+    .maybeSingle()
+
+  if (existing) {
+    await supabase.from('watchlist').delete().eq('id', existing.id)
+    return false
+  } else {
+    await supabase.from('watchlist').insert({ user_id: userId, movie_id: movieId })
+    return true
+  }
+}

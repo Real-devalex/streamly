@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
-  Bookmark,
   Calendar,
   Clock,
   Download,
@@ -16,6 +15,7 @@ import { CommentSection } from '@/components/community/CommentSection'
 import { MovieGrid } from '@/components/movie/MovieGrid'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { WatchlistButton } from '@/components/ui/WatchlistButton'
 import { useDownload } from '@/context/DownloadContext'
 import { fetchMovieBySlug, fetchRelatedMovies } from '@/lib/api'
 import { cn, formatFileSize, formatRuntime } from '@/utils/helpers'
@@ -27,7 +27,6 @@ export function MovieDetails() {
   const [movie, setMovie] = useState<Movie | null>(null)
   const [related, setRelated] = useState<Movie[]>([])
   const [loading, setLoading] = useState(true)
-  const [saved, setSaved] = useState(false)
   const [shareHint, setShareHint] = useState(false)
 
   useEffect(() => {
@@ -207,21 +206,7 @@ export function MovieDetails() {
                   </a>
                 ) : null}
 
-                <button
-                  type="button"
-                  onClick={() => setSaved((previous) => !previous)}
-                  aria-pressed={saved}
-                  className={cn(
-                    'grid h-13 w-13 place-items-center rounded-button border transition-all duration-300',
-                    saved
-                      ? 'border-streamly-purple/60 bg-streamly-purple/15 text-streamly-purple'
-                      : 'border-white/12 bg-white/5 text-streamly-text-secondary hover:border-white/25 hover:text-streamly-text',
-                  )}
-                  aria-label={saved ? 'Remove from watchlist' : 'Add to watchlist'}
-                  title={saved ? 'Saved to watchlist' : 'Save to watchlist'}
-                >
-                  <Bookmark className={cn('h-[18px] w-[18px]', saved && 'fill-current')} />
-                </button>
+                <WatchlistButton movieId={movie.id} size="lg" className="h-13 w-13" />
 
                 <button
                   type="button"

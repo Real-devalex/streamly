@@ -21,6 +21,7 @@ const links = [
   { to: '/series', label: 'Series' },
   { to: '/genres', label: 'Genres' },
   { to: '/movies?sort=rating', label: 'Top Rated' },
+  { to: '/watchlist', label: 'Watchlist' },
 ]
 
 export function Navbar() {

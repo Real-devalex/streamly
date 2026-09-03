@@ -8,6 +8,7 @@ import { Genres } from '@/pages/Genres'
 import { GenrePage } from '@/pages/GenrePage'
 import SeriesList from '@/pages/SeriesList'
 import SeriesDetails from '@/pages/SeriesDetails'
+import { Watchlist } from '@/pages/Watchlist'
 import { NotFound } from '@/pages/NotFound'
 import { SignIn } from '@/pages/auth/SignIn'
 import { SignUp } from '@/pages/auth/SignUp'
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="movie/:slug" element={<MovieDetails />} />
         <Route path="series" element={<SeriesList />} />
         <Route path="series/:slug" element={<SeriesDetails />} />
+        <Route path="watchlist" element={<Watchlist />} />
         <Route path="search" element={<SearchPage />} />
         <Route path="genres" element={<Genres />} />
         <Route path="genre/:slug" element={<GenrePage />} />
