@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Mail } from 'lucide-react'
+import { ArrowUpRight, Check, Mail } from 'lucide-react'
 import logoImg from '@/assets/logo/streamly-logo.png'
 import { genres } from '@/data/mock-movies'
 
@@ -66,6 +67,7 @@ const socials = [
 
 export function Footer() {
   const year = new Date().getFullYear()
+  const [subscribed, setSubscribed] = useState(false)
 
   return (
     <footer className="relative mt-24 overflow-hidden border-t border-streamly-border bg-streamly-black">
@@ -90,24 +92,38 @@ export function Footer() {
             </div>
           </div>
 
-          <form
-            className="flex w-full max-w-md items-center gap-2 lg:w-auto"
-            onSubmit={(event) => event.preventDefault()}
-          >
-            <div className="relative flex-1">
-              <input
-                type="email"
-                required
-                placeholder="you@example.com"
-                aria-label="Email address"
-                className="h-12 w-full rounded-button border border-streamly-border bg-black/40 pl-4 pr-4 text-sm text-streamly-text placeholder:text-streamly-text-muted focus:border-streamly-purple/60 focus:outline-none focus:ring-2 focus:ring-streamly-purple/25"
-              />
+          {subscribed ? (
+            <div className="flex w-full max-w-md animate-scale-in items-center gap-3 rounded-button border border-streamly-success/30 bg-streamly-success/8 px-4 py-3.5">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-streamly-success/15 text-streamly-success">
+                <Check className="h-4 w-4" strokeWidth={3} />
+              </span>
+              <p className="text-sm font-semibold text-streamly-success">
+                You are on the list — first email lands Friday.
+              </p>
             </div>
-            <button type="submit" className="btn-primary h-12 shrink-0 px-5 text-sm">
-              Subscribe
-              <ArrowUpRight className="h-4 w-4" />
-            </button>
-          </form>
+          ) : (
+            <form
+              className="flex w-full max-w-md items-center gap-2 lg:w-auto"
+              onSubmit={(event) => {
+                event.preventDefault()
+                setSubscribed(true)
+              }}
+            >
+              <div className="relative flex-1">
+                <input
+                  type="email"
+                  required
+                  placeholder="you@example.com"
+                  aria-label="Email address"
+                  className="h-12 w-full rounded-button border border-streamly-border bg-black/40 pl-4 pr-4 text-sm text-streamly-text placeholder:text-streamly-text-muted focus:border-streamly-purple/60 focus:outline-none focus:ring-2 focus:ring-streamly-purple/25"
+                />
+              </div>
+              <button type="submit" className="btn-primary h-12 shrink-0 px-5 text-sm">
+                Subscribe
+                <ArrowUpRight className="h-4 w-4" />
+              </button>
+            </form>
+          )}
         </div>
 
         {/* Main grid */}

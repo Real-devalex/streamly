@@ -36,7 +36,7 @@ export function Layout() {
       <ScrollToTop />
       <Navbar />
 
-      <main id="main" className="flex-1" key={pathname}>
+      <main id="main" className="flex-1 animate-fade-in" key={pathname}>
         <Outlet />
       </main>
 
