@@ -1,10 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import {
-  ArrowDownRight,
-  ArrowUpRight,
   Compass,
-  Download,
   Eye,
   Film,
   Flag,
@@ -15,24 +12,16 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react'
-import { fetchDashboardStats, fetchTopRatedMovies, fetchReports } from '@/lib/api'
+import { fetchDashboardStats, fetchTopRatedMovies, fetchReports, type DashboardStats } from '@/lib/api'
 import { cn, formatCompact, timeAgo } from '@/utils/helpers'
-import type { DashboardStats, Movie, Report } from '@/types'
+import type { Movie, Report } from '@/types'
 
 const statCards = [
-  { key: 'movies' as const, label: 'Titles in library', icon: Film, tone: 'from-streamly-purple/25 to-streamly-indigo/10 text-streamly-purple' },
-  { key: 'users' as const, label: 'Active members', icon: Users, tone: 'from-streamly-blue/25 to-streamly-cyan/10 text-streamly-cyan' },
-  { key: 'comments' as const, label: 'Comments posted', icon: MessageSquare, tone: 'from-streamly-indigo/25 to-streamly-purple/10 text-streamly-indigo' },
+  { key: 'movieCount' as const, label: 'Titles in library', icon: Film, tone: 'from-streamly-purple/25 to-streamly-indigo/10 text-streamly-purple' },
+  { key: 'userCount' as const, label: 'Active members', icon: Users, tone: 'from-streamly-blue/25 to-streamly-cyan/10 text-streamly-cyan' },
+  { key: 'commentCount' as const, label: 'Comments posted', icon: MessageSquare, tone: 'from-streamly-indigo/25 to-streamly-purple/10 text-streamly-indigo' },
   { key: 'pendingReportCount' as const, label: 'Pending reports', icon: Flag, tone: 'from-streamly-warning/25 to-streamly-gold/10 text-streamly-warning' },
 ]
-
-const activityIcon = {
-  download: Download,
-  comment: MessageSquare,
-  report: Flag,
-  user: Users,
-  movie: Film,
-}
 
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)

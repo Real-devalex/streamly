@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { movies as mockMovies, genres as mockGenres, searchMovies as mockSearch } from '@/data/mock-movies'
-import { mockComments, getAllComments as mockGetAllComments, getCommentsForMovie as mockGetCommentsForMovie, mockReports } from '@/data/mock-community'
-import type { Movie, Genre, Comment, Report, CastMember, DownloadLink, Series, Season, Episode, SeriesWithSeasons } from '@/types'
+import { getAllComments as mockGetAllComments, getCommentsForMovie as mockGetCommentsForMovie, mockReports } from '@/data/mock-community'
+import type { Movie, Genre, Comment, Report, CastMember, DownloadLink, Series, Season, Episode, SeriesWithSeasons, SeasonWithEpisodes } from '@/types'
 
 /* ═══════════════════════════════════════════════════════════════
    ROW MAPPERS — convert Supabase snake_case to app camelCase
