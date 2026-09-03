@@ -16,7 +16,9 @@ import { useDownload } from '@/context/DownloadContext'
 import { MovieGrid } from '@/components/movie/MovieGrid'
 import { MovieCard } from '@/components/movie/MovieCard'
 import { SectionHeader } from '@/components/ui/SectionHeader'
-import { fetchFeaturedMovies, fetchTrendingMovies, fetchLatestMovies, fetchTopRatedMovies, fetchGenres, getGenreMovieCount, fetchFeaturedSeries } from '@/lib/api'
+import { Reveal } from '@/components/ui/Reveal'
+import SeriesGrid from '@/components/series/SeriesGrid'
+import { fetchFeaturedMovies, fetchTrendingMovies, fetchLatestMovies, fetchTopRatedMovies, fetchGenres, getGenreMovieCount, fetchFeaturedSeries, fetchUpcomingMovies } from '@/lib/api'
 import { cn, formatRuntime } from '@/utils/helpers'
 import type { Movie, Genre, Series } from '@/types'
 
@@ -32,18 +34,20 @@ export function Home() {
   const [topRated, setTopRated] = useState<Movie[]>([])
   const [genreList, setGenreList] = useState<Genre[]>([])
   const [genreCounts, setGenreCounts] = useState<Record<string, number>>({})
+  const [upcoming, setUpcoming] = useState<Movie[]>([])
   const [trendingSeries, setTrendingSeries] = useState<Series[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const [f, t, l, tr, g, ts] = await Promise.all([
+      const [f, t, l, tr, g, ts, up] = await Promise.all([
         fetchFeaturedMovies(),
         fetchTrendingMovies(6),
         fetchLatestMovies(6),
         fetchTopRatedMovies(8),
         fetchGenres(),
         fetchFeaturedSeries(6),
+        fetchUpcomingMovies(8),
       ])
       setFeatured(f)
       setTrending(t)
@@ -51,6 +55,7 @@ export function Home() {
       setTopRated(tr)
       setGenreList(g)
       setTrendingSeries(ts)
+      setUpcoming(up)
 
       const counts: Record<string, number> = {}
       await Promise.all(g.map(async (genre) => { counts[genre.slug] = await getGenreMovieCount(genre.slug) }))
@@ -303,7 +308,7 @@ export function Home() {
       </div>
 
       {/* ══════════════ TRENDING ══════════════ */}
-      <section className="relative mx-auto mt-20 max-w-[1600px] px-4 sm:px-6 lg:px-10">
+      <Reveal className="relative mx-auto mt-20 max-w-[1600px] px-4 sm:px-6 lg:px-10">
         <SectionHeader
           eyebrow="This week"
           icon={<TrendingUp className="h-3.5 w-3.5" />}
@@ -313,10 +318,64 @@ export function Home() {
           actionTo="/movies"
         />
         <MovieGrid movies={trending} onDownload={openDownload} />
-      </section>
+      </Reveal>
+
+
+      {/* ══════════════ COMING SOON ══════════════ */}
+      {upcoming.length > 0 ? (
+        <Reveal className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
+          <SectionHeader
+            eyebrow="On the way"
+            icon={<Clock className="h-3.5 w-3.5 animate-spin-slow" />}
+            title="🎬 Coming soon"
+            subtitle="Locked in, dated and queued up. Download links go live on release day."
+            actionLabel="All movies"
+            actionTo="/movies?status=upcoming"
+          />
+
+          <div className="scrollbar-hide mask-fade-r -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
+            {upcoming.map((movie, index) => (
+              <Link
+                key={movie.id}
+                to={`/movie/${movie.slug}`}
+                style={{ animationDelay: `${index * 60}ms` }}
+                className="premium-card premium-card-hover group w-[164px] shrink-0 animate-fade-up snap-start overflow-hidden sm:w-[190px]"
+              >
+                <div className="relative aspect-[2/3] w-full overflow-hidden bg-streamly-surface">
+                  <img
+                    src={movie.posterUrl}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105 group-hover:brightness-75"
+                  />
+                  <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/40" />
+                  <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 rounded-full border border-streamly-warning/40 bg-black/60 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-streamly-warning backdrop-blur-md">
+                    <Clock className="h-3 w-3" />
+                    Coming soon
+                  </span>
+                  <span className="absolute inset-x-0 bottom-0 p-3">
+                    <span className="block truncate text-[13.5px] font-bold text-streamly-text">
+                      {movie.title}
+                    </span>
+                    <span className="mt-0.5 flex items-center gap-2 text-[11px] text-streamly-text-secondary">
+                      {movie.releaseYear}
+                      {movie.genres[0] ? (
+                        <>
+                          <span className="h-1 w-1 rounded-full bg-streamly-text-muted/60" />
+                          {movie.genres[0].name}
+                        </>
+                      ) : null}
+                    </span>
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </Reveal>
+      ) : null}
 
       {/* ══════════════ LATEST ══════════════ */}
-      <section className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
+      <Reveal className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
         <SectionHeader
           eyebrow="Fresh cuts"
           title="Latest releases"
@@ -325,10 +384,10 @@ export function Home() {
           actionTo="/movies?sort=latest"
         />
         <MovieGrid movies={latest} onDownload={openDownload} />
-      </section>
+      </Reveal>
 
       {/* ══════════════ GENRES ══════════════ */}
-      <section className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
+      <Reveal className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
         <SectionHeader
           eyebrow="Moods"
           title="Browse by genre"
@@ -377,11 +436,11 @@ export function Home() {
             </Link>
           ))}
         </div>
-      </section>
+      </Reveal>
 
       {/* ══════════════ TRENDING SERIES ══════════════ */}
       {trendingSeries.length > 0 && (
-        <section className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
+        <Reveal className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
           <SectionHeader
             eyebrow="Binge-worthy"
             title="Trending series"
@@ -389,43 +448,12 @@ export function Home() {
             actionLabel="All series"
             actionTo="/series"
           />
-          <div className="stagger-children grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {trendingSeries.map((s) => (
-              <Link
-                key={s.id}
-                to={`/series/${s.slug}`}
-                className="group relative overflow-hidden rounded-xl bg-neutral-900 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/10"
-              >
-                <div className="aspect-[2/3] overflow-hidden">
-                  <img
-                    src={s.posterUrl || `https://placehold.co/400x600/1a1a2e/6366f1?text=${encodeURIComponent(s.title)}`}
-                    alt={s.title}
-                    loading="lazy"
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
-                      <Play className="h-5 w-5 text-white fill-white" />
-                    </div>
-                  </div>
-                  <div className="absolute top-2 right-2 flex items-center gap-1 rounded-lg bg-black/70 px-2 py-1">
-                    <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
-                    <span className="text-xs font-semibold text-white">{s.rating.toFixed(1)}</span>
-                  </div>
-                </div>
-                <div className="p-3">
-                  <h3 className="truncate text-sm font-semibold text-white group-hover:text-purple-300">{s.title}</h3>
-                  <p className="text-xs text-neutral-500">{s.totalSeasons} Season{s.totalSeasons !== 1 ? 's' : ''}</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
+          <SeriesGrid series={trendingSeries} columns={5} />
+        </Reveal>
       )}
 
       {/* ══════════════ TOP RATED ══════════════ */}
-      <section className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
+      <Reveal className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
         <SectionHeader
           eyebrow="Hall of fame"
           title="Top rated of all time"
@@ -443,10 +471,10 @@ export function Home() {
             />
           ))}
         </div>
-      </section>
+      </Reveal>
 
       {/* ══════════════ CTA ══════════════ */}
-      <section className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
+      <Reveal className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
         <div className="relative overflow-hidden rounded-modal border border-streamly-border bg-gradient-to-br from-streamly-purple/18 via-streamly-card/70 to-streamly-blue/12 px-6 py-14 text-center sm:px-12">
           <div className="aurora -left-20 top-0 h-64 w-64 bg-streamly-purple/30" />
           <div className="aurora -right-16 bottom-0 h-64 w-64 bg-streamly-cyan/20" />
@@ -473,7 +501,7 @@ export function Home() {
             </div>
           </div>
         </div>
-      </section>
+      </Reveal>
     </div>
   )
 }

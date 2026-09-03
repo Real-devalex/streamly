@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import {
+  Clock,
   Compass,
   Eye,
   Film,
@@ -20,7 +21,8 @@ const statCards = [
   { key: 'movieCount' as const, label: 'Titles in library', icon: Film, tone: 'from-streamly-purple/25 to-streamly-indigo/10 text-streamly-purple' },
   { key: 'userCount' as const, label: 'Active members', icon: Users, tone: 'from-streamly-blue/25 to-streamly-cyan/10 text-streamly-cyan' },
   { key: 'commentCount' as const, label: 'Comments posted', icon: MessageSquare, tone: 'from-streamly-indigo/25 to-streamly-purple/10 text-streamly-indigo' },
-  { key: 'pendingReportCount' as const, label: 'Pending reports', icon: Flag, tone: 'from-streamly-warning/25 to-streamly-gold/10 text-streamly-warning' },
+  { key: 'upcomingCount' as const, label: 'Upcoming releases', icon: Clock, tone: 'from-streamly-warning/25 to-streamly-gold/10 text-streamly-warning' },
+  { key: 'pendingReportCount' as const, label: 'Pending reports', icon: Flag, tone: 'from-streamly-error/25 to-streamly-warning/10 text-streamly-error' },
 ]
 
 export function Dashboard() {
@@ -89,7 +91,7 @@ export function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="stagger-children grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="stagger-children grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {statCards.map((card) => {
           const value = stats[card.key] ?? 0
           return (

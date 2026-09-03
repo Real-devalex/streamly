@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Clock, Download, Play, Star } from 'lucide-react'
+import { CalendarClock, Clock, Download, Play, Star } from 'lucide-react'
 import { WatchlistButton } from '@/components/ui/WatchlistButton'
 import type { Movie } from '@/types'
 import { cn, formatRuntime } from '@/utils/helpers'
@@ -26,6 +26,7 @@ export function MovieCard({
 }: MovieCardProps) {
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
+  const isUpcoming = movie.status === 'upcoming'
 
   const card = (
     <article
@@ -80,17 +81,24 @@ export function MovieCard({
           <div className="absolute -inset-y-8 -left-1/3 w-1/2 rotate-12 bg-gradient-to-r from-transparent via-white/12 to-transparent blur-md transition-transform duration-[1200ms] ease-out group-hover:translate-x-[320%]" />
         </div>
 
-        {/* Rating chip */}
-        <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full border border-white/12 bg-black/55 px-2.5 py-1 text-[11px] font-bold text-streamly-gold backdrop-blur-md">
-          <Star className="h-3 w-3 fill-streamly-gold text-streamly-gold" />
-          {movie.rating.toFixed(1)}
-        </div>
+        {/* Rating chip / Coming soon badge */}
+        {isUpcoming ? (
+          <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-streamly-warning/40 bg-black/60 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-streamly-warning backdrop-blur-md">
+            <CalendarClock className="h-3 w-3" />
+            Coming soon
+          </div>
+        ) : (
+          <div className="absolute left-3 top-3 flex items-center gap-1 rounded-full border border-white/12 bg-black/55 px-2.5 py-1 text-[11px] font-bold text-streamly-gold backdrop-blur-md">
+            <Star className="h-3 w-3 fill-streamly-gold text-streamly-gold" />
+            {movie.rating.toFixed(1)}
+          </div>
+        )}
 
         {/* Watchlist button */}
         <WatchlistButton movieId={movie.id} size="sm" className="absolute left-3 top-14 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
         {/* Quick action */}
-        {onDownload ? (
+        {onDownload && !isUpcoming ? (
           <button
             type="button"
             aria-label={`Download ${movie.title}`}
@@ -106,7 +114,7 @@ export function MovieCard({
         ) : null}
 
         {/* Centre play button */}
-        <div className="absolute inset-0 grid place-items-center">
+        <div className={cn('absolute inset-0 grid place-items-center', isUpcoming && 'hidden')}>
           <span
             className={cn(
               'grid h-14 w-14 place-items-center rounded-full text-white',
@@ -147,10 +155,17 @@ export function MovieCard({
           <div className="mt-1 flex items-center gap-2 text-xs text-streamly-text-muted">
             <span>{movie.releaseYear}</span>
             <span className="h-1 w-1 rounded-full bg-streamly-text-muted/60" />
-            <span className="inline-flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {formatRuntime(movie.runtimeMinutes)}
-            </span>
+            {isUpcoming ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-streamly-warning">
+                <CalendarClock className="h-3 w-3" />
+                Not yet released
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {formatRuntime(movie.runtimeMinutes)}
+              </span>
+            )}
           </div>
         </div>
       ) : null}

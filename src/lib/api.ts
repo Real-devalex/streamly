@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { movies as mockMovies, genres as mockGenres, searchMovies as mockSearch } from '@/data/mock-movies'
 import { getAllComments as mockGetAllComments, getCommentsForMovie as mockGetCommentsForMovie, mockReports } from '@/data/mock-community'
-import type { Movie, Genre, Comment, Report, CastMember, DownloadLink, Series, Season, Episode, SeriesWithSeasons, SeasonWithEpisodes } from '@/types'
+import type { ContentStatus, Notification, Movie, Genre, Comment, Report, CastMember, DownloadLink, Series, Season, Episode, SeriesWithSeasons, SeasonWithEpisodes } from '@/types'
 
 /* ═══════════════════════════════════════════════════════════════
    ROW MAPPERS — convert Supabase snake_case to app camelCase
@@ -164,6 +164,7 @@ export async function fetchMovieById(id: string): Promise<Movie | null> {
 export async function fetchLatestMovies(limit = 6): Promise<Movie[]> {
   if (!isSupabaseConfigured) {
     return [...mockMovies]
+      .filter((m) => m.status === 'published')
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, limit)
   }
@@ -179,7 +180,7 @@ export async function fetchLatestMovies(limit = 6): Promise<Movie[]> {
 }
 
 export async function fetchFeaturedMovies(): Promise<Movie[]> {
-  if (!isSupabaseConfigured) return mockMovies.filter((m) => m.featured)
+  if (!isSupabaseConfigured) return mockMovies.filter((m) => m.featured && m.status === 'published')
 
   const { data, error } = await supabase.from('movies').select('*').eq('featured', true).eq('status', 'published')
   if (error || !data) return []
@@ -189,6 +190,7 @@ export async function fetchFeaturedMovies(): Promise<Movie[]> {
 export async function fetchTrendingMovies(limit = 6): Promise<Movie[]> {
   if (!isSupabaseConfigured) {
     return [...mockMovies]
+      .filter((m) => m.status === 'published')
       .sort((a, b) => b.rating * 10 + b.releaseYear - (a.rating * 10 + a.releaseYear))
       .slice(0, limit)
   }
@@ -205,7 +207,10 @@ export async function fetchTrendingMovies(limit = 6): Promise<Movie[]> {
 
 export async function fetchTopRatedMovies(limit = 10): Promise<Movie[]> {
   if (!isSupabaseConfigured) {
-    return [...mockMovies].sort((a, b) => b.rating - a.rating).slice(0, limit)
+    return [...mockMovies]
+      .filter((m) => m.status === 'published')
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, limit)
   }
 
   const { data, error } = await supabase
@@ -267,6 +272,262 @@ export async function fetchRelatedMovies(movie: Movie, limit = 4): Promise<Movie
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   UPCOMING QUEUE
+   ═══════════════════════════════════════════════════════════════ */
+
+export async function fetchUpcomingMovies(limit = 8): Promise<Movie[]> {
+  if (!isSupabaseConfigured) {
+    return [...mockMovies]
+      .filter((m) => m.status === 'upcoming')
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      .slice(0, limit)
+  }
+
+  const { data, error } = await supabase
+    .from('movies')
+    .select('*')
+    .eq('status', 'upcoming')
+    .order('release_year', { ascending: true })
+    .limit(limit)
+  if (error || !data) return []
+  return Promise.all(data.map((row) => enrichMovie(row)))
+}
+
+export async function fetchUpcomingSeries(limit = 8): Promise<Series[]> {
+  if (!isSupabaseConfigured) return []
+
+  const { data, error } = await supabase
+    .from('series')
+    .select('*')
+    .eq('status', 'upcoming')
+    .order('release_year', { ascending: true })
+    .limit(limit)
+  if (error || !data) return []
+  return Promise.all(data.map((row) => enrichSeries(row)))
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NOTIFICATIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+const DEMO_NOTIFICATIONS_KEY = 'streamly:demo-notifications'
+
+function readDemoNotifications(): Notification[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(DEMO_NOTIFICATIONS_KEY)
+    if (raw) return JSON.parse(raw) as Notification[]
+  } catch {
+    /* ignore */
+  }
+  return []
+}
+
+function writeDemoNotifications(list: Notification[]) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(DEMO_NOTIFICATIONS_KEY, JSON.stringify(list.slice(0, 100)))
+  } catch {
+    /* ignore */
+  }
+}
+
+function seedDemoNotifications(userId: string): Notification[] {
+  const now = Date.now()
+  const picks = mockMovies.slice(0, 3)
+  const seeded: Notification[] = [
+    {
+      id: 'n-seed-1',
+      userId,
+      type: 'new_movie',
+      title: `New Movie: ${picks[0]?.title ?? 'Neon Horizon'}`,
+      message: `${picks[0]?.title ?? 'Neon Horizon'} is now available to download in 1080p.`,
+      read: false,
+      referenceType: 'movie',
+      referenceId: picks[0]?.slug,
+      createdAt: new Date(now - 1000 * 60 * 12).toISOString(),
+    },
+    {
+      id: 'n-seed-2',
+      userId,
+      type: 'reply',
+      title: 'New reply to your comment',
+      message: '@reel_talk replied: "Completely agree — that third act reveal floored me."',
+      read: false,
+      referenceType: 'movie',
+      referenceId: picks[1]?.slug,
+      createdAt: new Date(now - 1000 * 60 * 60 * 3).toISOString(),
+    },
+    {
+      id: 'n-seed-3',
+      userId,
+      type: 'reaction',
+      title: 'Your comment got some love',
+      message: '6 people reacted to your review.',
+      read: true,
+      referenceType: 'movie',
+      referenceId: picks[2]?.slug,
+      createdAt: new Date(now - 1000 * 60 * 60 * 30).toISOString(),
+    },
+  ]
+  writeDemoNotifications(seeded)
+  return seeded
+}
+
+function mapNotification(row: Record<string, unknown>): Notification {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    type: row.type as Notification['type'],
+    title: row.title as string,
+    message: row.message as string,
+    read: Boolean(row.read),
+    referenceType: (row.reference_type as string) ?? undefined,
+    referenceId: (row.reference_id as string) ?? undefined,
+    createdAt: (row.created_at as string) ?? new Date().toISOString(),
+  }
+}
+
+export async function fetchNotifications(userId: string): Promise<Notification[]> {
+  if (!userId) return []
+  if (!isSupabaseConfigured) {
+    const stored = readDemoNotifications()
+    if (stored.length > 0) return stored.map((n) => ({ ...n, userId }))
+    return seedDemoNotifications(userId)
+  }
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error || !data) return []
+  return data.map(mapNotification)
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  if (!isSupabaseConfigured) {
+    writeDemoNotifications(readDemoNotifications().map((n) => (n.id === id ? { ...n, read: true } : n)))
+    return
+  }
+  await supabase.from('notifications').update({ read: true }).eq('id', id)
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  if (!isSupabaseConfigured) {
+    writeDemoNotifications(readDemoNotifications().map((n) => ({ ...n, read: true })))
+    return
+  }
+  await supabase.from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false)
+}
+
+export async function deleteNotification(id: string): Promise<void> {
+  if (!isSupabaseConfigured) {
+    writeDemoNotifications(readDemoNotifications().filter((n) => n.id !== id))
+    return
+  }
+  await supabase.from('notifications').delete().eq('id', id)
+}
+
+export async function createNotification(
+  userId: string,
+  type: string,
+  title: string,
+  message: string,
+  refType?: string,
+  refId?: string,
+): Promise<void> {
+  if (!isSupabaseConfigured) {
+    const next: Notification = {
+      id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      userId,
+      type: type as Notification['type'],
+      title,
+      message,
+      read: false,
+      referenceType: refType,
+      referenceId: refId,
+      createdAt: new Date().toISOString(),
+    }
+    writeDemoNotifications([next, ...readDemoNotifications()])
+    return
+  }
+
+  await supabase.from('notifications').insert({
+    user_id: userId,
+    type,
+    title,
+    message,
+    reference_type: refType ?? null,
+    reference_id: refId ?? null,
+  })
+}
+
+export async function createBulkNotifications(
+  userIds: string[],
+  type: string,
+  title: string,
+  message: string,
+  refType?: string,
+  refId?: string,
+): Promise<void> {
+  if (userIds.length === 0) return
+  if (!isSupabaseConfigured) {
+    await createNotification(userIds[0], type, title, message, refType, refId)
+    return
+  }
+
+  await supabase.from('notifications').insert(
+    userIds.map((userId) => ({
+      user_id: userId,
+      type,
+      title,
+      message,
+      reference_type: refType ?? null,
+      reference_id: refId ?? null,
+    })),
+  )
+}
+
+export async function fetchUnreadCount(userId: string): Promise<number> {
+  if (!userId) return 0
+  if (!isSupabaseConfigured) {
+    return (await fetchNotifications(userId)).filter((n) => !n.read).length
+  }
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('read', false)
+  if (error) return 0
+  return count ?? 0
+}
+
+/** Fan out a "new content" notification to every registered member. */
+export async function notifyAllUsersOfNewContent(
+  kind: 'movie' | 'series',
+  title: string,
+  refId: string,
+  extra?: string,
+): Promise<void> {
+  const notifTitle = kind === 'movie' ? `🎬 New Movie: ${title}` : `📺 New Series: ${title}`
+  const message =
+    kind === 'movie'
+      ? `${title} is now available!`
+      : `${title}${extra ? ` — ${extra}` : ''} is live!`
+
+  if (!isSupabaseConfigured) {
+    await createNotification('demo-user', kind === 'movie' ? 'new_movie' : 'new_series', notifTitle, message, kind, refId)
+    return
+  }
+
+  const { data } = await supabase.from('profiles').select('id')
+  const ids = (data ?? []).map((row: { id: string }) => row.id)
+  await createBulkNotifications(ids, kind === 'movie' ? 'new_movie' : 'new_series', notifTitle, message, kind, refId)
+}
+
+/* ═══════════════════════════════════════════════════════════════
    MOVIE CRUD (Admin)
    ═══════════════════════════════════════════════════════════════ */
 
@@ -280,7 +541,7 @@ export interface MovieInput {
   releaseYear: number
   runtimeMinutes: number
   rating: number
-  status: 'draft' | 'published' | 'archived'
+  status: ContentStatus
   featured: boolean
   genreIds: string[]
   cast: Array<{ castMemberId: string; characterName: string; photoUrl?: string }>
@@ -688,6 +949,7 @@ export async function updateReportStatus(id: string, status: Report['status']): 
 export interface DashboardStats {
   movieCount: number
   publishedCount: number
+  upcomingCount: number
   featuredCount: number
   userCount: number
   commentCount: number
@@ -700,6 +962,7 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
     return {
       movieCount: mockMovies.length,
       publishedCount: mockMovies.filter((m) => m.status === 'published').length,
+      upcomingCount: mockMovies.filter((m) => m.status === 'upcoming').length,
       featuredCount: mockMovies.filter((m) => m.featured).length,
       userCount: 0,
       commentCount: mockGetAllComments().length,
@@ -718,6 +981,7 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   return {
     movieCount: movies.count ?? 0,
     publishedCount: (movies.data ?? []).filter((m) => m.status === 'published').length,
+    upcomingCount: (movies.data ?? []).filter((m) => m.status === 'upcoming').length,
     featuredCount: (movies.data ?? []).filter((m) => m.featured).length,
     userCount: users.count ?? 0,
     commentCount: comments.count ?? 0,
@@ -887,7 +1151,7 @@ export interface SeriesInput {
   trailerUrl: string
   releaseYear: number
   rating: number
-  status: 'draft' | 'published' | 'archived'
+  status: ContentStatus
   featured: boolean
   genreIds: string[]
   cast: Array<{ castMemberId: string; characterName: string; photoUrl?: string }>
