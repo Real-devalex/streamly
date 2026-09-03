@@ -45,20 +45,6 @@ do $$ begin
   create type notification_type as enum ('reaction', 'reply', 'mention');
 exception when duplicate_object then null; end $$;
 
--- ── Helper: is the current user an admin? ──────────────────────
-create or replace function public.is_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.profiles
-    where id = auth.uid() and role = 'admin'
-  );
-$$;
-
 -- ── Helper: touch updated_at ───────────────────────────────────
 create or replace function public.set_updated_at()
 returns trigger
@@ -88,6 +74,20 @@ create table if not exists public.profiles (
 
 create index if not exists profiles_username_idx on public.profiles (username);
 create index if not exists profiles_role_idx     on public.profiles (role);
+
+-- ── Helper: is the current user an admin? ──────────────────────
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'admin'
+  );
+$$;
 
 -- genres ────────────────────────────────────────────────────────
 create table if not exists public.genres (

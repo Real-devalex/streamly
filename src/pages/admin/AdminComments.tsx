@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { EyeOff, Eye, Flag, Search, ShieldCheck, Trash2, Undo2 } from 'lucide-react'
-import { getAllComments } from '@/data/mock-community'
-import { getMovieById } from '@/data/mock-movies'
+import { EyeOff, Eye, Flag, Loader2, Search, ShieldCheck, Trash2, Undo2 } from 'lucide-react'
+import { fetchAllComments, updateCommentStatus, deleteComment as apiDeleteComment } from '@/lib/api'
 import { cn, timeAgo } from '@/utils/helpers'
 import type { Comment } from '@/types'
 
@@ -10,19 +9,30 @@ const filters = ['all', 'spoiler', 'reported', 'hidden'] as const
 type Filter = (typeof filters)[number]
 
 export function AdminComments() {
+  const [allComments, setAllComments] = useState<Comment[]>([])
+  const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [hidden, setHidden] = useState<Set<string>>(new Set())
   const [removed, setRemoved] = useState<Set<string>>(new Set())
 
+  useEffect(() => {
+    async function load() {
+      const data = await fetchAllComments()
+      setAllComments(data)
+      setLoading(false)
+    }
+    void load()
+  }, [])
+
   const flat = useMemo(() => {
     const list: Comment[] = []
-    for (const comment of getAllComments()) {
+    for (const comment of allComments) {
       list.push(comment)
       for (const reply of comment.replies ?? []) list.push(reply)
     }
     return list
-  }, [])
+  }, [allComments])
 
   const rows = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -33,23 +43,37 @@ export function AdminComments() {
         (comment.user?.username ?? '').toLowerCase().includes(term)
       if (!matchesQuery) return false
       if (filter === 'spoiler') return comment.isSpoiler
-      if (filter === 'hidden') return hidden.has(comment.id)
+      if (filter === 'hidden') return hidden.has(comment.id) || comment.status === 'hidden'
       if (filter === 'reported') return comment.reactions?.length ? true : true
       return true
     })
   }, [flat, query, filter, hidden])
 
-  const toggleHidden = (id: string) =>
+  const toggleHidden = async (id: string) => {
+    const isCurrentlyHidden = hidden.has(id)
+    await updateCommentStatus(id, isCurrentlyHidden ? 'active' : 'hidden')
     setHidden((previous) => {
       const next = new Set(previous)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
+  }
 
-  const remove = (id: string) => setRemoved((previous) => new Set(previous).add(id))
+  const remove = async (id: string) => {
+    await apiDeleteComment(id)
+    setRemoved((previous) => new Set(previous).add(id))
+  }
 
   const active = rows.filter((comment) => !removed.has(comment.id))
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-streamly-purple" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -89,8 +113,7 @@ export function AdminComments() {
       {/* List */}
       <div className="space-y-3">
         {active.map((comment) => {
-          const movie = getMovieById(comment.movieId)
-          const isHidden = hidden.has(comment.id)
+          const isHidden = hidden.has(comment.id) || comment.status === 'hidden'
           return (
             <article
               key={comment.id}
@@ -133,14 +156,6 @@ export function AdminComments() {
                 </p>
 
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-streamly-text-muted">
-                  {movie ? (
-                    <Link
-                      to={`/movie/${movie.slug}`}
-                      className="inline-flex items-center gap-1.5 font-semibold text-streamly-purple transition-colors hover:text-streamly-cyan"
-                    >
-                      {movie.title}
-                    </Link>
-                  ) : null}
                   <span className="inline-flex items-center gap-1">
                     {comment.reactions?.length ?? 0} reactions
                   </span>
@@ -153,7 +168,7 @@ export function AdminComments() {
               <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => toggleHidden(comment.id)}
+                  onClick={() => void toggleHidden(comment.id)}
                   className="grid h-9 w-9 place-items-center rounded-lg border border-streamly-border bg-white/3 text-streamly-text-muted transition-all duration-300 hover:-translate-y-0.5 hover:border-streamly-warning/40 hover:bg-streamly-warning/10 hover:text-streamly-warning"
                   aria-label={isHidden ? 'Unhide comment' : 'Hide comment'}
                   title={isHidden ? 'Unhide' : 'Hide'}
@@ -162,23 +177,7 @@ export function AdminComments() {
                 </button>
                 <button
                   type="button"
-                  className="grid h-9 w-9 place-items-center rounded-lg border border-streamly-border bg-white/3 text-streamly-text-muted transition-all duration-300 hover:-translate-y-0.5 hover:border-streamly-cyan/40 hover:bg-streamly-cyan/10 hover:text-streamly-cyan"
-                  aria-label="Approve comment"
-                  title="Approve"
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  className="grid h-9 w-9 place-items-center rounded-lg border border-streamly-border bg-white/3 text-streamly-text-muted transition-all duration-300 hover:-translate-y-0.5 hover:border-streamly-purple/40 hover:bg-streamly-purple/10 hover:text-streamly-purple"
-                  aria-label="Review reports"
-                  title="Reports"
-                >
-                  <Flag className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => remove(comment.id)}
+                  onClick={() => void remove(comment.id)}
                   className="grid h-9 w-9 place-items-center rounded-lg border border-streamly-border bg-white/3 text-streamly-text-muted transition-all duration-300 hover:-translate-y-0.5 hover:border-streamly-error/40 hover:bg-streamly-error/10 hover:text-streamly-error"
                   aria-label="Delete comment"
                   title="Delete"

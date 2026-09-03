@@ -1,54 +1,29 @@
 import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Compass,
   Download,
   Eye,
   Film,
   Flag,
+  Loader2,
   MessageSquare,
   Plus,
   Sparkles,
   TrendingUp,
   Users,
 } from 'lucide-react'
-import { dashboardStats, mockReports, recentActivity } from '@/data/mock-community'
-import { getTopRatedMovies, movies } from '@/data/mock-movies'
+import { fetchDashboardStats, fetchTopRatedMovies, fetchReports } from '@/lib/api'
 import { cn, formatCompact, timeAgo } from '@/utils/helpers'
+import type { DashboardStats, Movie, Report } from '@/types'
 
 const statCards = [
-  {
-    key: 'movies' as const,
-    label: 'Titles in library',
-    value: dashboardStats.movies,
-    icon: Film,
-    tone: 'from-streamly-purple/25 to-streamly-indigo/10 text-streamly-purple',
-    series: dashboardStats.trends.movies,
-  },
-  {
-    key: 'users' as const,
-    label: 'Active members',
-    value: dashboardStats.users,
-    icon: Users,
-    tone: 'from-streamly-blue/25 to-streamly-cyan/10 text-streamly-cyan',
-    series: dashboardStats.trends.users,
-  },
-  {
-    key: 'comments' as const,
-    label: 'Comments posted',
-    value: dashboardStats.comments,
-    icon: MessageSquare,
-    tone: 'from-streamly-indigo/25 to-streamly-purple/10 text-streamly-indigo',
-    series: dashboardStats.trends.comments,
-  },
-  {
-    key: 'downloads' as const,
-    label: 'Downloads served',
-    value: dashboardStats.downloads,
-    icon: Download,
-    tone: 'from-streamly-success/25 to-streamly-cyan/10 text-streamly-success',
-    series: dashboardStats.trends.downloads,
-  },
+  { key: 'movies' as const, label: 'Titles in library', icon: Film, tone: 'from-streamly-purple/25 to-streamly-indigo/10 text-streamly-purple' },
+  { key: 'users' as const, label: 'Active members', icon: Users, tone: 'from-streamly-blue/25 to-streamly-cyan/10 text-streamly-cyan' },
+  { key: 'comments' as const, label: 'Comments posted', icon: MessageSquare, tone: 'from-streamly-indigo/25 to-streamly-purple/10 text-streamly-indigo' },
+  { key: 'pendingReportCount' as const, label: 'Pending reports', icon: Flag, tone: 'from-streamly-warning/25 to-streamly-gold/10 text-streamly-warning' },
 ]
 
 const activityIcon = {
@@ -60,8 +35,35 @@ const activityIcon = {
 }
 
 export function Dashboard() {
-  const topMovies = getTopRatedMovies(5)
-  const pendingReports = mockReports.filter((report) => report.status === 'pending')
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [topMovies, setTopMovies] = useState<Movie[]>([])
+  const [reports, setReports] = useState<Report[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      const [s, tm, r] = await Promise.all([
+        fetchDashboardStats(),
+        fetchTopRatedMovies(5),
+        fetchReports(),
+      ])
+      setStats(s)
+      setTopMovies(tm)
+      setReports(r)
+      setLoading(false)
+    }
+    void load()
+  }, [])
+
+  if (loading || !stats) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-streamly-purple" />
+      </div>
+    )
+  }
+
+  const pendingReports = reports.filter((r) => r.status === 'pending')
 
   return (
     <div className="space-y-8">
@@ -90,7 +92,7 @@ export function Dashboard() {
             <Eye className="h-4 w-4" />
             Library
           </Link>
-          <Link to="/admin/movies" className="btn-primary h-10 px-4 text-[13px]">
+          <Link to="/admin/movies/new" className="btn-primary h-10 px-4 text-[13px]">
             <Plus className="h-4 w-4" />
             Add movie
           </Link>
@@ -100,8 +102,7 @@ export function Dashboard() {
       {/* Stats */}
       <div className="stagger-children grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {statCards.map((card) => {
-          const delta = dashboardStats.deltas[card.key]
-          const positive = delta >= 0
+          const value = stats[card.key] ?? 0
           return (
             <div key={card.key} className="premium-card premium-card-hover overflow-hidden p-5">
               <div className="flex items-start justify-between">
@@ -113,31 +114,12 @@ export function Dashboard() {
                 >
                   <card.icon className="h-[18px] w-[18px]" />
                 </span>
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold',
-                    positive
-                      ? 'border-streamly-success/30 bg-streamly-success/10 text-streamly-success'
-                      : 'border-streamly-error/30 bg-streamly-error/10 text-streamly-error',
-                  )}
-                >
-                  {positive ? (
-                    <ArrowUpRight className="h-3 w-3" />
-                  ) : (
-                    <ArrowDownRight className="h-3 w-3" />
-                  )}
-                  {Math.abs(delta)}%
-                </span>
               </div>
 
               <p className="mt-5 text-3xl font-black tabular-nums tracking-tight text-streamly-text">
-                {formatCompact(card.value)}
+                {formatCompact(value)}
               </p>
               <p className="mt-1 text-[13px] text-streamly-text-muted">{card.label}</p>
-
-              <div className="mt-4 h-12">
-                <Sparkline series={card.series} />
-              </div>
             </div>
           )
         })}
@@ -150,7 +132,7 @@ export function Dashboard() {
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-streamly-text">Top performing titles</h3>
-              <p className="text-xs text-streamly-text-muted">By downloads this month</p>
+              <p className="text-xs text-streamly-text-muted">By rating</p>
             </div>
             <Link
               to="/admin/movies"
@@ -187,9 +169,9 @@ export function Dashboard() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-bold tabular-nums text-streamly-text">
-                      {formatCompact(120_000 - index * 18_400)}
+                      {movie.rating.toFixed(1)}
                     </p>
-                    <p className="text-[11px] text-streamly-text-muted">downloads</p>
+                    <p className="text-[11px] text-streamly-text-muted">rating</p>
                   </div>
                 </li>
               )
@@ -197,12 +179,12 @@ export function Dashboard() {
           </ul>
         </section>
 
-        {/* Activity */}
+        {/* Recent reports */}
         <section className="premium-card p-5 lg:col-span-2">
           <div className="mb-5 flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-streamly-text">Recent activity</h3>
-              <p className="text-xs text-streamly-text-muted">Live from the community</p>
+              <h3 className="text-base font-bold text-streamly-text">Recent reports</h3>
+              <p className="text-xs text-streamly-text-muted">Latest flagged content</p>
             </div>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-streamly-success/25 bg-streamly-success/8 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-streamly-success">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-streamly-success" />
@@ -212,25 +194,22 @@ export function Dashboard() {
 
           <ol className="relative space-y-5">
             <span className="absolute left-[15px] top-2 bottom-2 w-px bg-gradient-to-b from-streamly-purple/60 via-streamly-border to-transparent" />
-            {recentActivity.map((item) => {
-              const Icon = activityIcon[item.type]
-              return (
-                <li key={item.id} className="relative flex gap-3">
-                  <span className="relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full border border-streamly-border bg-streamly-card text-streamly-purple">
-                    <Icon className="h-3.5 w-3.5" />
-                  </span>
-                  <div className="min-w-0 flex-1 pt-0.5">
-                    <p className="text-[13px] leading-snug text-streamly-text-secondary">
-                      <span className="font-semibold text-streamly-text">@{item.actor}</span>{' '}
-                      {item.message}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-streamly-text-muted">
-                      {timeAgo(item.createdAt)}
-                    </p>
-                  </div>
-                </li>
-              )
-            })}
+            {reports.slice(0, 5).map((report) => (
+              <li key={report.id} className="relative flex gap-3">
+                <span className="relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full border border-streamly-border bg-streamly-card text-streamly-purple">
+                  <Flag className="h-3.5 w-3.5" />
+                </span>
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <p className="text-[13px] leading-snug text-streamly-text-secondary">
+                    <span className="font-semibold text-streamly-text">@{report.reporter?.username ?? 'unknown'}</span>{' '}
+                    reported {report.targetType} for <span className="font-semibold">{report.reason}</span>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-streamly-text-muted">
+                    {timeAgo(report.createdAt)}
+                  </p>
+                </div>
+              </li>
+            ))}
           </ol>
         </section>
       </div>
@@ -245,16 +224,16 @@ export function Dashboard() {
             icon: Flag,
           },
           {
-            title: `${movies.length} titles published`,
+            title: `${stats.movieCount} titles published`,
             copy: 'Metadata, artwork and download links all in one table.',
             to: '/admin/movies',
             icon: Film,
           },
           {
-            title: 'Community discussions',
-            copy: 'Hide, restore or delete comments across the library.',
-            to: '/admin/comments',
-            icon: MessageSquare,
+            title: 'Manage genres',
+            copy: 'Add, edit or remove genre categories from the library.',
+            to: '/admin/genres',
+            icon: Compass,
           },
         ].map((action) => (
           <Link
@@ -279,52 +258,6 @@ export function Dashboard() {
         ))}
       </div>
     </div>
-  )
-}
-
-/** Lightweight SVG sparkline. */
-function Sparkline({ series }: { series: number[] }) {
-  const max = Math.max(...series)
-  const min = Math.min(...series)
-  const span = max - min || 1
-  const width = 100
-  const height = 32
-
-  const points = series
-    .map((value, index) => {
-      const x = (index / (series.length - 1)) * width
-      const y = height - ((value - min) / span) * (height - 6) - 3
-      return `${x.toFixed(2)},${y.toFixed(2)}`
-    })
-    .join(' ')
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="h-12 w-full">
-      <defs>
-        <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id="spark-line" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#8b5cf6" />
-          <stop offset="100%" stopColor="#22d3ee" />
-        </linearGradient>
-      </defs>
-      <polyline
-        points={`0,${height} ${points} ${width},${height}`}
-        fill="url(#spark-fill)"
-        stroke="none"
-      />
-      <polyline
-        points={points}
-        fill="none"
-        stroke="url(#spark-line)"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
   )
 }
 

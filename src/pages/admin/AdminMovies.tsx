@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Eye,
   EyeOff,
+  Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -10,7 +11,7 @@ import {
   Star,
   Trash2,
 } from 'lucide-react'
-import { movies } from '@/data/mock-movies'
+import { fetchMovies, deleteMovie } from '@/lib/api'
 import { cn, formatCompact, formatRuntime, hashSeed } from '@/utils/helpers'
 import type { Movie } from '@/types'
 
@@ -18,8 +19,21 @@ const filters = ['all', 'published', 'draft', 'archived'] as const
 type Filter = (typeof filters)[number]
 
 export function AdminMovies() {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  const [movies, setMovies] = useState<Movie[]>([])
+  const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      const data = await fetchMovies()
+      setMovies(data)
+      setLoading(false)
+    }
+    void load()
+  }, [])
 
   const rows = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -31,7 +45,23 @@ export function AdminMovies() {
         movie.genres.some((genre) => genre.name.toLowerCase().includes(term))
       return matchesFilter && matchesQuery
     })
-  }, [query, filter])
+  }, [query, filter, movies])
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this movie permanently?')) return
+    setDeleting(id)
+    await deleteMovie(id)
+    setMovies((prev) => prev.filter((m) => m.id !== id))
+    setDeleting(null)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-streamly-purple" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -68,7 +98,11 @@ export function AdminMovies() {
             ))}
           </div>
 
-          <button type="button" className="btn-primary h-10 px-4 text-[13px]">
+          <button
+            type="button"
+            onClick={() => navigate('/admin/movies/new')}
+            className="btn-primary h-10 px-4 text-[13px]"
+          >
             <Plus className="h-4 w-4" />
             Add movie
           </button>
@@ -93,7 +127,7 @@ export function AdminMovies() {
             </thead>
             <tbody>
               {rows.map((movie) => (
-                <Row key={movie.id} movie={movie} />
+                <Row key={movie.id} movie={movie} onDelete={handleDelete} deleting={deleting === movie.id} />
               ))}
             </tbody>
           </table>
@@ -113,29 +147,14 @@ export function AdminMovies() {
             Showing <span className="font-semibold text-streamly-text">{rows.length}</span> of{' '}
             <span className="font-semibold text-streamly-text">{movies.length}</span> titles
           </p>
-          <div className="flex items-center gap-1">
-            {[1, 2, 3].map((page) => (
-              <button
-                key={page}
-                type="button"
-                className={cn(
-                  'h-8 w-8 rounded-lg text-xs font-semibold transition-colors',
-                  page === 1
-                    ? 'bg-streamly-purple/20 text-streamly-purple ring-1 ring-streamly-purple/40'
-                    : 'text-streamly-text-muted hover:bg-white/5 hover:text-streamly-text',
-                )}
-              >
-                {page}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function Row({ movie }: { movie: Movie }) {
+function Row({ movie, onDelete, deleting }: { movie: Movie; onDelete: (id: string) => void; deleting: boolean }) {
+  const navigate = useNavigate()
   const downloads = 40_000 + (hashSeed(movie.id) % 90_000)
 
   return (
@@ -175,14 +194,14 @@ function Row({ movie }: { movie: Movie }) {
       </td>
       <td className="px-5 py-3.5">
         <div className="flex items-center justify-end gap-1 opacity-60 transition-opacity group-hover:opacity-100">
-          <IconButton label="View" icon={<Eye className="h-4 w-4" />} />
-          <IconButton label="Edit" icon={<Pencil className="h-4 w-4" />} />
+          <IconButton label="View" icon={<Eye className="h-4 w-4" />} onClick={() => navigate(`/movie/${movie.slug}`)} />
+          <IconButton label="Edit" icon={<Pencil className="h-4 w-4" />} onClick={() => navigate(`/admin/movies/edit/${movie.id}`)} />
           <IconButton
-            label="Unpublish"
-            icon={<EyeOff className="h-4 w-4" />}
+            label="Delete"
+            icon={deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            onClick={() => onDelete(movie.id)}
+            danger
           />
-          <IconButton label="Delete" icon={<Trash2 className="h-4 w-4" />} danger />
-          <IconButton label="More" icon={<MoreHorizontal className="h-4 w-4" />} />
         </div>
       </td>
     </tr>
@@ -212,16 +231,19 @@ function IconButton({
   label,
   icon,
   danger = false,
+  onClick,
 }: {
   label: string
   icon: React.ReactNode
   danger?: boolean
+  onClick?: () => void
 }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
+      onClick={onClick}
       className={cn(
         'grid h-8 w-8 place-items-center rounded-lg border border-transparent text-streamly-text-muted transition-all duration-300 hover:-translate-y-0.5',
         danger

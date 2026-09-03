@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Clapperboard } from 'lucide-react'
+import { ArrowLeft, Clapperboard, Loader2 } from 'lucide-react'
 import { MovieGrid } from '@/components/movie/MovieGrid'
 import { useDownload } from '@/context/DownloadContext'
-import { getGenreBySlug, getMoviesByGenre } from '@/data/mock-movies'
+import { fetchGenreBySlug, fetchMoviesByGenreSlug } from '@/lib/api'
 import { EmptyState } from '@/components/ui/EmptyState'
+import type { Genre, Movie } from '@/types'
 
 const blurbs: Record<string, string> = {
   action: 'Chases, detonations and one very tired stunt double.',
@@ -23,8 +25,31 @@ const blurbs: Record<string, string> = {
 export function GenrePage() {
   const { slug = '' } = useParams()
   const { openDownload } = useDownload()
-  const genre = getGenreBySlug(slug)
-  const movies = getMoviesByGenre(slug)
+  const [genre, setGenre] = useState<Genre | null>(null)
+  const [movies, setMovies] = useState<Movie[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const [g, m] = await Promise.all([fetchGenreBySlug(slug), fetchMoviesByGenreSlug(slug)])
+      if (!cancelled) {
+        setGenre(g)
+        setMovies(m)
+        setLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [slug])
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-streamly-purple" />
+      </div>
+    )
+  }
 
   if (!genre) {
     return (

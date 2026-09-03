@@ -1,11 +1,11 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Film, ListFilter, SlidersHorizontal } from 'lucide-react'
+import { Film, ListFilter, Loader2, SlidersHorizontal } from 'lucide-react'
 import { MovieGrid } from '@/components/movie/MovieGrid'
 import { useDownload } from '@/context/DownloadContext'
-import { genres, movies } from '@/data/mock-movies'
+import { fetchMovies, fetchGenres } from '@/lib/api'
 import { cn } from '@/utils/helpers'
-import type { Movie } from '@/types'
+import type { Movie, Genre } from '@/types'
 
 type SortKey = 'latest' | 'rating' | 'title' | 'year'
 
@@ -19,12 +19,25 @@ const sorts: Array<{ key: SortKey; label: string }> = [
 export function Movies() {
   const [params, setParams] = useSearchParams()
   const { openDownload } = useDownload()
+  const [allMovies, setAllMovies] = useState<Movie[]>([])
+  const [genreList, setGenreList] = useState<Genre[]>([])
+  const [loading, setLoading] = useState(true)
 
   const sort = (params.get('sort') as SortKey | null) ?? 'latest'
   const activeGenre = params.get('genre')
 
+  useEffect(() => {
+    async function load() {
+      const [movies, genres] = await Promise.all([fetchMovies(), fetchGenres()])
+      setAllMovies(movies)
+      setGenreList(genres)
+      setLoading(false)
+    }
+    void load()
+  }, [])
+
   const filtered = useMemo(() => {
-    let list: Movie[] = [...movies]
+    let list: Movie[] = [...allMovies]
     if (activeGenre) {
       list = list.filter((movie) => movie.genres.some((genre) => genre.slug === activeGenre))
     }
@@ -44,13 +57,21 @@ export function Movies() {
         )
     }
     return list
-  }, [sort, activeGenre])
+  }, [sort, activeGenre, allMovies])
 
   const updateParam = (key: string, value: string | null) => {
     const next = new URLSearchParams(params)
     if (value) next.set(key, value)
     else next.delete(key)
     setParams(next, { replace: true })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-streamly-purple" />
+      </div>
+    )
   }
 
   return (
@@ -69,7 +90,7 @@ export function Movies() {
             All <span className="gradient-text">movies</span>
           </h1>
           <p className="mt-3 max-w-xl animate-fade-up text-[15px] leading-relaxed text-streamly-text-secondary">
-            {movies.length} hand-picked titles, remastered and ready to download in up to Full HD.
+            {allMovies.length} hand-picked titles, remastered and ready to download in up to Full HD.
           </p>
 
           {/* Controls */}
@@ -88,7 +109,7 @@ export function Movies() {
               >
                 All
               </button>
-              {genres.map((genre) => (
+              {genreList.map((genre) => (
                 <button
                   key={genre.id}
                   type="button"
@@ -147,7 +168,7 @@ export function Movies() {
                 {' '}
                 in{' '}
                 <span className="font-semibold text-streamly-text">
-                  {genres.find((genre) => genre.slug === activeGenre)?.name}
+                  {genreList.find((genre) => genre.slug === activeGenre)?.name}
                 </span>
               </>
             ) : null}

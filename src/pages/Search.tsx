@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Film, Search, TrendingUp, X } from 'lucide-react'
 import { MovieGrid } from '@/components/movie/MovieGrid'
 import { useDownload } from '@/context/DownloadContext'
-import { POPULAR_SEARCHES, getTrendingMovies, searchMovies } from '@/data/mock-movies'
+import { searchMoviesOnline, fetchTrendingMovies } from '@/lib/api'
 import { cn } from '@/utils/helpers'
+import type { Movie } from '@/types'
+
+const POPULAR_SEARCHES = ['Sci-Fi', 'Thriller', 'Heist', 'Animation', '2025', 'Horror', 'Romance']
 
 export function SearchPage() {
   const [params, setParams] = useSearchParams()
@@ -12,10 +15,26 @@ export function SearchPage() {
   const urlQuery = params.get('q') ?? ''
   const [input, setInput] = useState(urlQuery)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [results, setResults] = useState<Movie[]>([])
+  const [trending, setTrending] = useState<Movie[]>([])
+  const [searching, setSearching] = useState(false)
 
-  /* Keep the field in sync with deep links / back navigation */
+  useEffect(() => { setInput(urlQuery) }, [urlQuery])
+
+  // Load trending on mount
   useEffect(() => {
-    setInput(urlQuery)
+    void fetchTrendingMovies(5).then(setTrending)
+  }, [])
+
+  // Search when query changes
+  useEffect(() => {
+    if (!urlQuery.trim()) { setResults([]); return }
+    let cancelled = false
+    setSearching(true)
+    void searchMoviesOnline(urlQuery).then((data) => {
+      if (!cancelled) { setResults(data); setSearching(false) }
+    })
+    return () => { cancelled = true }
   }, [urlQuery])
 
   useEffect(() => {
@@ -29,8 +48,6 @@ export function SearchPage() {
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  const results = useMemo(() => (urlQuery ? searchMovies(urlQuery) : []), [urlQuery])
-  const trending = useMemo(() => getTrendingMovies(5), [])
   const hasQuery = urlQuery.trim().length > 0
 
   const submit = (value: string) => {
@@ -75,7 +92,7 @@ export function SearchPage() {
                 }}
                 type="search"
                 autoComplete="off"
-                placeholder="Try “sci-fi”, “heist”, or a cast member…"
+                placeholder='Try "sci-fi", "heist", or a cast member…'
                 aria-label="Search movies"
                 className="h-13 w-full bg-transparent pl-12 pr-10 text-[15px] text-streamly-text placeholder:text-streamly-text-muted focus:outline-none"
               />
@@ -129,9 +146,9 @@ export function SearchPage() {
           <>
             <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-bold text-streamly-text">
-                {results.length} {results.length === 1 ? 'result' : 'results'}
+                {searching ? 'Searching...' : results.length} {results.length === 1 ? 'result' : 'results'}
                 <span className="ml-2 text-sm font-medium text-streamly-text-muted">
-                  for “{urlQuery}”
+                  for "{urlQuery}"
                 </span>
               </h2>
             </div>
@@ -139,7 +156,7 @@ export function SearchPage() {
             <MovieGrid
               movies={results}
               onDownload={openDownload}
-              emptyTitle={`No matches for “${urlQuery}”`}
+              emptyTitle={`No matches for "${urlQuery}"`}
               emptyMessage="Check the spelling, or try a genre, a year, or an actor's name."
             />
           </>
@@ -155,11 +172,11 @@ export function SearchPage() {
               {[
                 {
                   title: 'Search by mood',
-                  copy: 'Type a genre — “thriller”, “animation” — and we will do the rest.',
+                  copy: 'Type a genre — "thriller", "animation" — and we will do the rest.',
                 },
                 {
                   title: 'Search by cast',
-                  copy: 'Remember the face but not the film? Search the actor’s name.',
+                  copy: 'Remember the face but not the film? Search the actor\'s name.',
                 },
                 {
                   title: 'Search by year',

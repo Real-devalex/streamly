@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   Bell,
   ChevronLeft,
+  Compass,
   Flag,
   LayoutDashboard,
   LogOut,
@@ -11,7 +12,9 @@ import {
   Search,
   Shield,
   Film,
+  Tv,
   X,
+  Pencil,
 } from 'lucide-react'
 import logoImg from '@/assets/logo/streamly-logo.png'
 import iconImg from '@/assets/logo/icon.png'
@@ -21,6 +24,8 @@ import { cn, getInitials } from '@/utils/helpers'
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/movies', label: 'Movies', icon: Film },
+  { to: '/admin/series', label: 'Series', icon: Tv },
+  { to: '/admin/genres', label: 'Genres', icon: Compass },
   { to: '/admin/comments', label: 'Comments', icon: MessageSquare },
   { to: '/admin/reports', label: 'Reports', icon: Flag },
 ]
@@ -28,6 +33,10 @@ const navItems = [
 const titles: Record<string, { title: string; subtitle: string }> = {
   '/admin': { title: 'Dashboard', subtitle: 'Everything happening across Streamly today.' },
   '/admin/movies': { title: 'Movies', subtitle: 'Manage the library, metadata and availability.' },
+  '/admin/movies/new': { title: 'Add Movie', subtitle: 'Create a new movie entry in the library.' },
+  '/admin/series': { title: 'Series', subtitle: 'Manage TV series, seasons and episodes.' },
+  '/admin/series/new': { title: 'Add Series', subtitle: 'Create a new TV series entry.' },
+  '/admin/genres': { title: 'Genres', subtitle: 'Organise the library by mood and category.' },
   '/admin/comments': { title: 'Comments', subtitle: 'Moderate community discussions.' },
   '/admin/reports': { title: 'Reports', subtitle: 'Review flagged content and members.' },
 }
@@ -41,7 +50,9 @@ export function AdminLayout() {
     setSidebarOpen(false)
   }, [location.pathname])
 
-  const meta = titles[location.pathname] ?? {
+  // Match dynamic routes like /admin/movies/edit/:id
+  const metaKey = Object.keys(titles).find((key) => location.pathname === key || (key !== '/admin' && location.pathname.startsWith(key + '/')))
+  const meta = (metaKey ? titles[metaKey] : null) ?? {
     title: 'Admin',
     subtitle: 'Streamly control centre.',
   }

@@ -106,6 +106,59 @@ export interface Notification {
   createdAt: string
 }
 
+// ── TV Series ────────────────────────────────────────────────
+
+export interface Series {
+  id: string
+  title: string
+  slug: string
+  description: string
+  posterUrl: string
+  backdropUrl: string
+  trailerUrl?: string
+  releaseYear: number
+  status: 'draft' | 'published' | 'archived'
+  featured: boolean
+  rating: number
+  totalSeasons: number
+  totalEpisodes: number
+  genres: Genre[]
+  cast: CastMember[]
+  createdAt: string
+}
+
+export interface Season {
+  id: string
+  seriesId: string
+  seasonNumber: number
+  title?: string
+  description?: string
+  posterUrl?: string
+  episodeCount: number
+  releaseYear?: number
+}
+
+export interface Episode {
+  id: string
+  seasonId: string
+  episodeNumber: number
+  title: string
+  description?: string
+  stillUrl?: string
+  runtimeMinutes?: number
+  airDate?: string
+  status: 'draft' | 'published'
+  downloadLinks: DownloadLink[]
+}
+
+export interface SeriesWithSeasons extends Series {
+  seasons: Season[]
+}
+
+export interface SeasonWithEpisodes extends Season {
+  episodes: Episode[]
+}
+
 export interface ApiResponse<T> {
   data: T | null
   error: string | null

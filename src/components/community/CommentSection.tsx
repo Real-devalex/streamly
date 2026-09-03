@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   CornerDownRight,
   EyeOff,
   Eye,
   Flag,
+  Loader2,
   MessageSquare,
   Send,
   ShieldAlert,
@@ -12,7 +13,7 @@ import {
 } from 'lucide-react'
 import type { Comment, ReactionType } from '@/types'
 import { useAuth } from '@/context/AuthContext'
-import { getCommentsForMovie } from '@/data/mock-community'
+import { fetchCommentsForMovie, insertComment } from '@/lib/api'
 import { cn, getInitials, REACTION_EMOJI, REACTION_LABEL, timeAgo } from '@/utils/helpers'
 
 const REACTIONS: ReactionType[] = ['love', 'funny', 'fire', 'wow', 'sad', 'mindblown']
@@ -28,7 +29,8 @@ type SortKey = 'top' | 'new' | 'old'
 
 export function CommentSection({ movieId, movieTitle, className }: CommentSectionProps) {
   const { isAuthenticated, profile } = useAuth()
-  const [comments, setComments] = useState<Comment[]>(() => getCommentsForMovie(movieId))
+  const [comments, setComments] = useState<Comment[]>([])
+  const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState('')
   const [isSpoiler, setIsSpoiler] = useState(false)
   const [sort, setSort] = useState<SortKey>('top')
@@ -37,8 +39,19 @@ export function CommentSection({ movieId, movieTitle, className }: CommentSectio
   const [revealed, setRevealed] = useState<Set<string>>(new Set())
   const [myReactions, setMyReactions] = useState<Set<string>>(new Set())
   const [reported, setReported] = useState<Set<string>>(new Set())
+  const [submitting, setSubmitting] = useState(false)
 
   const currentUser = profile
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const data = await fetchCommentsForMovie(movieId)
+      if (!cancelled) { setComments(data); setLoading(false) }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [movieId])
 
   const totalCount = useMemo(
     () => comments.reduce((sum, comment) => sum + 1 + (comment.replies?.length ?? 0), 0),
@@ -76,51 +89,81 @@ export function CommentSection({ movieId, movieTitle, className }: CommentSectio
     setReported((previous) => new Set(previous).add(commentId))
   }
 
-  const submitComment = () => {
+  const submitComment = async () => {
     const content = draft.trim()
     if (!content || !currentUser) return
-    const comment: Comment = {
-      id: `local-${Date.now()}`,
-      userId: currentUser.id,
-      movieId,
-      content,
-      isSpoiler,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      user: currentUser,
-      reactions: [],
-      replies: [],
+    setSubmitting(true)
+
+    const newComment = await insertComment(movieId, currentUser.id, content, isSpoiler)
+    if (newComment) {
+      newComment.user = currentUser
+      newComment.reactions = []
+      newComment.replies = []
+      setComments((previous) => [newComment, ...previous])
+    } else {
+      // Fallback: local insert for demo mode
+      const comment: Comment = {
+        id: `local-${Date.now()}`,
+        userId: currentUser.id,
+        movieId,
+        content,
+        isSpoiler,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        user: currentUser,
+        reactions: [],
+        replies: [],
+      }
+      setComments((previous) => [comment, ...previous])
     }
-    setComments((previous) => [comment, ...previous])
+
     setDraft('')
     setIsSpoiler(false)
     setSort('new')
+    setSubmitting(false)
   }
 
-  const submitReply = (parentId: string) => {
+  const submitReply = async (parentId: string) => {
     const content = replyDraft.trim()
     if (!content || !currentUser) return
-    const reply: Comment = {
-      id: `local-reply-${Date.now()}`,
-      userId: currentUser.id,
-      movieId,
-      parentId,
-      content,
-      isSpoiler: false,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      user: currentUser,
-      reactions: [],
+    setSubmitting(true)
+
+    const newReply = await insertComment(movieId, currentUser.id, content, false, parentId)
+    if (newReply) {
+      newReply.user = currentUser
+      newReply.reactions = []
+      setComments((previous) =>
+        previous.map((comment) =>
+          comment.id === parentId
+            ? { ...comment, replies: [...(comment.replies ?? []), newReply] }
+            : comment,
+        ),
+      )
+    } else {
+      const reply: Comment = {
+        id: `local-reply-${Date.now()}`,
+        userId: currentUser.id,
+        movieId,
+        parentId,
+        content,
+        isSpoiler: false,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        user: currentUser,
+        reactions: [],
+      }
+      setComments((previous) =>
+        previous.map((comment) =>
+          comment.id === parentId
+            ? { ...comment, replies: [...(comment.replies ?? []), reply] }
+            : comment,
+        ),
+      )
     }
-    setComments((previous) =>
-      previous.map((comment) =>
-        comment.id === parentId
-          ? { ...comment, replies: [...(comment.replies ?? []), reply] }
-          : comment,
-      ),
-    )
+
     setReplyDraft('')
     setReplyTo(null)
+    setSubmitting(false)
   }
 
   const renderReactions = (comment: Comment) => {
@@ -260,91 +303,54 @@ export function CommentSection({ movieId, movieTitle, className }: CommentSectio
                   Reply
                 </button>
               ) : null}
-              <button
-                type="button"
-                onClick={() => report(comment.id)}
-                disabled={isReported}
-                className={cn(
-                  'inline-flex items-center gap-1.5 font-medium transition-colors',
-                  isReported
-                    ? 'text-streamly-warning'
-                    : 'text-streamly-text-muted hover:text-streamly-error',
-                )}
-              >
-                <Flag className="h-3.5 w-3.5" />
-                {isReported ? 'Reported' : 'Report'}
-              </button>
-              {comment.isSpoiler && !spoilerHidden ? (
+              {!isReported ? (
                 <button
                   type="button"
-                  onClick={() =>
-                    setRevealed((previous) => {
-                      const next = new Set(previous)
-                      next.delete(comment.id)
-                      return next
-                    })
-                  }
-                  className="inline-flex items-center gap-1.5 font-medium text-streamly-text-muted transition-colors hover:text-streamly-text"
+                  onClick={() => report(comment.id)}
+                  className="inline-flex items-center gap-1.5 font-medium text-streamly-text-muted transition-colors hover:text-streamly-error"
                 >
-                  <Eye className="h-3.5 w-3.5" />
-                  Hide spoiler
+                  <Flag className="h-3.5 w-3.5" />
+                  Report
                 </button>
-              ) : null}
+              ) : (
+                <span className="inline-flex items-center gap-1.5 font-medium text-streamly-success">
+                  <Flag className="h-3.5 w-3.5" />
+                  Reported
+                </span>
+              )}
             </div>
 
-            {isReported ? (
-              <p className="mt-2 animate-fade-in rounded-lg border border-streamly-warning/25 bg-streamly-warning/8 px-3 py-2 text-[11px] text-streamly-warning">
-                Thanks — a moderator will review this within 24 hours.
-              </p>
-            ) : null}
-
-            {/* Reply composer */}
+            {/* Reply input */}
             {replyTo === comment.id ? (
-              <div className="mt-4 animate-scale-in">
-                <div className="flex items-start gap-3">
-                  {currentUser?.avatarUrl ? (
-                    <img
-                      src={currentUser.avatarUrl}
-                      alt=""
-                      className="h-8 w-8 rounded-full object-cover ring-1 ring-white/10"
-                    />
-                  ) : null}
-                  <div className="flex-1">
-                    <textarea
-                      value={replyDraft}
-                      onChange={(event) => setReplyDraft(event.target.value)}
-                      rows={2}
-                      placeholder={`Reply to ${comment.user?.displayName ?? comment.user?.username}…`}
-                      className="w-full resize-none rounded-button border border-streamly-border bg-black/30 px-3.5 py-2.5 text-sm text-streamly-text placeholder:text-streamly-text-muted focus:border-streamly-purple/60 focus:outline-none focus:ring-2 focus:ring-streamly-purple/25"
-                    />
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => submitReply(comment.id)}
-                        disabled={!replyDraft.trim()}
-                        className="btn-primary h-8 px-4 text-xs"
-                      >
-                        Post reply
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReplyTo(null)
-                          setReplyDraft('')
-                        }}
-                        className="h-8 px-3 text-xs font-medium text-streamly-text-muted transition-colors hover:text-streamly-text"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  value={replyDraft}
+                  onChange={(event) => setReplyDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault()
+                      void submitReply(comment.id)
+                    }
+                  }}
+                  type="text"
+                  placeholder="Write a reply..."
+                  autoFocus
+                  className="flex-1 rounded-button border border-streamly-border bg-white/3 px-4 py-2.5 text-sm text-streamly-text placeholder:text-streamly-text-muted focus:border-streamly-purple/60 focus:outline-none focus:ring-2 focus:ring-streamly-purple/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => void submitReply(comment.id)}
+                  disabled={!replyDraft.trim() || submitting}
+                  className="grid h-10 w-10 place-items-center rounded-button bg-gradient-to-r from-streamly-purple to-streamly-indigo text-white transition-all hover:shadow-[0_10px_30px_-10px_rgba(139,92,246,0.9)] disabled:opacity-40"
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </button>
               </div>
             ) : null}
 
             {/* Replies */}
             {comment.replies && comment.replies.length > 0 ? (
-              <div className="mt-5 space-y-5">
+              <div className="mt-4 space-y-4">
                 {comment.replies.map((reply) => renderComment(reply, true))}
               </div>
             ) : null}
@@ -354,154 +360,130 @@ export function CommentSection({ movieId, movieTitle, className }: CommentSectio
     )
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-streamly-purple" />
+      </div>
+    )
+  }
+
   return (
-    <section className={cn('scroll-mt-28', className)} id="comments">
+    <div className={cn('space-y-6', className)}>
       {/* Header */}
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-streamly-purple">
-            <MessageSquare className="h-3.5 w-3.5 text-streamly-cyan" />
-            Community
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-streamly-purple/25 to-streamly-blue/15 text-streamly-purple ring-1 ring-white/10">
+            <MessageSquare className="h-4 w-4" />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold text-streamly-text">
+              Discussion
+              {movieTitle ? (
+                <span className="ml-2 text-sm font-medium text-streamly-text-muted">
+                  on {movieTitle}
+                </span>
+              ) : null}
+            </h2>
+            <p className="text-xs text-streamly-text-muted">{totalCount} comments</p>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-streamly-text sm:text-3xl">
-            Discussions
-            <span className="ml-2 text-base font-medium text-streamly-text-muted">
-              ({totalCount})
-            </span>
-          </h2>
         </div>
 
+        {/* Sort */}
         <div className="flex items-center gap-1 rounded-full border border-streamly-border bg-white/3 p-1">
-          {(
-            [
-              ['top', 'Top'],
-              ['new', 'Newest'],
-              ['old', 'Oldest'],
-            ] as Array<[SortKey, string]>
-          ).map(([key, label]) => (
+          {(['top', 'new', 'old'] as const).map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => setSort(key)}
               className={cn(
-                'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-300',
+                'rounded-full px-3 py-1.5 text-xs font-semibold capitalize transition-all duration-300',
                 sort === key
-                  ? 'bg-gradient-to-r from-streamly-purple to-streamly-indigo text-white shadow-[0_8px_20px_-10px_rgba(139,92,246,0.9)]'
+                  ? 'bg-white/10 text-streamly-text'
                   : 'text-streamly-text-muted hover:text-streamly-text',
               )}
             >
-              {label}
+              {key === 'top' ? '🔥 Top' : key === 'new' ? '🕐 New' : '📜 Old'}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Composer */}
+      {/* Compose */}
       {isAuthenticated ? (
-        <div className="premium-card mb-9 p-4 sm:p-5">
-          <div className="flex gap-3.5">
+        <div className="rounded-modal border border-streamly-border bg-streamly-card p-4">
+          <div className="flex gap-3">
             {currentUser?.avatarUrl ? (
-              <img
-                src={currentUser.avatarUrl}
-                alt=""
-                className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/12"
-              />
+              <img src={currentUser.avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/12" />
             ) : (
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-streamly-purple to-streamly-blue text-xs font-bold text-white">
                 {getInitials(currentUser?.displayName ?? currentUser?.username)}
               </div>
             )}
-
             <div className="min-w-0 flex-1">
               <textarea
                 value={draft}
-                onChange={(event) => setDraft(event.target.value.slice(0, MAX_LENGTH))}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="Share your thoughts..."
                 rows={3}
-                placeholder={
-                  movieTitle
-                    ? `Share your thoughts on ${movieTitle}…`
-                    : 'Share your thoughts…'
-                }
-                className="w-full resize-none rounded-button border border-streamly-border bg-black/30 px-4 py-3 text-sm leading-relaxed text-streamly-text placeholder:text-streamly-text-muted transition-colors focus:border-streamly-purple/60 focus:outline-none focus:ring-2 focus:ring-streamly-purple/25"
+                maxLength={MAX_LENGTH}
+                className="w-full rounded-button border border-streamly-border bg-white/3 px-4 py-3 text-sm text-streamly-text placeholder:text-streamly-text-muted focus:border-streamly-purple/60 focus:outline-none focus:ring-2 focus:ring-streamly-purple/20 resize-none"
               />
-
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsSpoiler((previous) => !previous)}
-                  className={cn(
-                    'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all duration-300',
-                    isSpoiler
-                      ? 'border-streamly-warning/60 bg-streamly-warning/12 text-streamly-warning'
-                      : 'border-streamly-border bg-white/3 text-streamly-text-muted hover:border-streamly-border-light hover:text-streamly-text',
-                  )}
-                >
-                  <EyeOff className="h-3.5 w-3.5" />
-                  {isSpoiler ? 'Marked as spoiler' : 'Mark as spoiler'}
-                </button>
-
+              <div className="mt-2 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span
-                    className={cn(
-                      'text-[11px] tabular-nums',
-                      draft.length > MAX_LENGTH - 100
-                        ? 'text-streamly-warning'
-                        : 'text-streamly-text-muted',
-                    )}
-                  >
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-streamly-text-muted transition-colors hover:text-streamly-text">
+                    <input
+                      type="checkbox"
+                      checked={isSpoiler}
+                      onChange={(event) => setIsSpoiler(event.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-streamly-border bg-streamly-surface text-streamly-purple focus:ring-streamly-purple/40"
+                    />
+                    <EyeOff className="h-3.5 w-3.5" />
+                    Spoiler
+                  </label>
+                  <span className="text-[11px] text-streamly-text-muted">
                     {draft.length}/{MAX_LENGTH}
                   </span>
-                  <button
-                    type="button"
-                    onClick={submitComment}
-                    disabled={!draft.trim()}
-                    className="btn-primary h-9 px-5 text-[13px]"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                    Post comment
-                  </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => void submitComment()}
+                  disabled={!draft.trim() || submitting}
+                  className="inline-flex h-9 items-center gap-2 rounded-button bg-gradient-to-r from-streamly-purple to-streamly-indigo px-4 text-sm font-semibold text-white transition-all hover:shadow-[0_10px_30px_-10px_rgba(139,92,246,0.9)] disabled:opacity-40"
+                >
+                  {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  Post
+                </button>
               </div>
             </div>
           </div>
         </div>
       ) : (
-        <div className="mb-9 flex flex-col items-start gap-4 rounded-card border border-streamly-border bg-gradient-to-br from-streamly-purple/12 via-white/3 to-transparent p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-streamly-purple/20 text-streamly-purple ring-1 ring-streamly-purple/30">
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-streamly-text">
-                Join the conversation
-              </p>
-              <p className="mt-0.5 text-[13px] text-streamly-text-secondary">
-                Sign in to react, reply and post your own take.
-              </p>
-            </div>
-          </div>
-          <div className="flex w-full gap-2.5 sm:w-auto">
-            <Link to="/auth/signin" className="btn-secondary h-10 flex-1 px-5 text-[13px] sm:flex-none">
-              Sign in
-            </Link>
-            <Link to="/auth/signup" className="btn-primary h-10 flex-1 px-5 text-[13px] sm:flex-none">
-              Join free
-            </Link>
-          </div>
+        <div className="rounded-modal border border-streamly-border bg-streamly-card p-6 text-center">
+          <Sparkles className="mx-auto h-6 w-6 text-streamly-purple" />
+          <p className="mt-3 text-sm font-semibold text-streamly-text">Join the discussion</p>
+          <p className="mt-1 text-[13px] text-streamly-text-muted">
+            Sign in to leave a comment, react, and reply.
+          </p>
+          <Link to="/auth/signin" className="btn-primary mt-4 inline-flex h-10 px-5 text-[13px]">
+            Sign in
+          </Link>
         </div>
       )}
 
-      {/* List */}
-      <div className="space-y-8">
+      {/* Comments */}
+      <div className="space-y-6">
         {sorted.map((comment) => renderComment(comment))}
       </div>
 
       {sorted.length === 0 ? (
-        <p className="py-10 text-center text-sm text-streamly-text-muted">
-          No comments yet — be the first to start the conversation.
-        </p>
+        <div className="py-12 text-center">
+          <MessageSquare className="mx-auto h-8 w-8 text-streamly-text-muted" />
+          <p className="mt-4 text-sm font-semibold text-streamly-text">No comments yet</p>
+          <p className="mt-1 text-[13px] text-streamly-text-muted">Be the first to share your thoughts.</p>
+        </div>
       ) : null}
-    </section>
+    </div>
   )
 }
 

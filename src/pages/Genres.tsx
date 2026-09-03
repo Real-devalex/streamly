@@ -1,9 +1,37 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Compass } from 'lucide-react'
-import { genres, getMoviesByGenre } from '@/data/mock-movies'
+import { ArrowRight, Compass, Loader2 } from 'lucide-react'
+import { fetchGenres, fetchMoviesByGenreSlug } from '@/lib/api'
 import { cn } from '@/utils/helpers'
+import type { Genre, Movie } from '@/types'
 
 export function Genres() {
+  const [genres, setGenres] = useState<Genre[]>([])
+  const [genreMovies, setGenreMovies] = useState<Record<string, Movie[]>>({})
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      const g = await fetchGenres()
+      setGenres(g)
+      const movieMap: Record<string, Movie[]> = {}
+      await Promise.all(
+        g.map(async (genre) => { movieMap[genre.slug] = await fetchMoviesByGenreSlug(genre.slug) })
+      )
+      setGenreMovies(movieMap)
+      setLoading(false)
+    }
+    void load()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-streamly-purple" />
+      </div>
+    )
+  }
+
   return (
     <div className="pb-8">
       {/* Header */}
@@ -14,7 +42,7 @@ export function Genres() {
         <div className="relative mx-auto max-w-4xl px-4 pb-14 pt-32 text-center sm:px-6 sm:pt-36">
           <div className="flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-streamly-purple">
             <Compass className="h-3.5 w-3.5 text-streamly-cyan" />
-            12 collections
+            {genres.length} collections
           </div>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-streamly-text sm:text-5xl">
             Every mood has a <span className="gradient-text">genre</span>
@@ -30,7 +58,7 @@ export function Genres() {
       <section className="mx-auto max-w-[1600px] px-4 py-12 sm:px-6 lg:px-10">
         <div className="stagger-children grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {genres.map((genre) => {
-            const titles = getMoviesByGenre(genre.slug)
+            const titles = genreMovies[genre.slug] ?? []
             return (
               <Link
                 key={genre.id}

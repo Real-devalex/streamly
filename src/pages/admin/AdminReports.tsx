@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Clock, Flag, Search, ShieldCheck, X } from 'lucide-react'
-import { mockReports, profileById } from '@/data/mock-community'
-import { getMovieById } from '@/data/mock-movies'
+import { useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, CheckCircle2, Clock, Flag, Loader2, Search, ShieldCheck, X } from 'lucide-react'
+import { fetchReports, updateReportStatus } from '@/lib/api'
 import { cn, timeAgo } from '@/utils/helpers'
 import type { Report, ReportReason } from '@/types'
 
@@ -17,15 +16,26 @@ const reasonTone: Record<ReportReason, string> = {
 }
 
 export function AdminReports() {
+  const [reports, setReports] = useState<Report[]>([])
+  const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('pending')
   const [statuses, setStatuses] = useState<Record<string, Report['status']>>({})
+
+  useEffect(() => {
+    async function load() {
+      const data = await fetchReports()
+      setReports(data)
+      setLoading(false)
+    }
+    void load()
+  }, [])
 
   const statusOf = (report: Report) => statuses[report.id] ?? report.status
 
   const rows = useMemo(() => {
     const term = query.trim().toLowerCase()
-    return mockReports.filter((report) => {
+    return reports.filter((report) => {
       const status = statusOf(report)
       const matchesFilter = filter === 'all' || status === filter
       const matchesQuery =
@@ -36,16 +46,26 @@ export function AdminReports() {
       return matchesFilter && matchesQuery
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, filter, statuses])
+  }, [query, filter, statuses, reports])
 
   const counts = {
-    pending: mockReports.filter((report) => statusOf(report) === 'pending').length,
-    reviewed: mockReports.filter((report) => statusOf(report) === 'reviewed').length,
-    resolved: mockReports.filter((report) => statusOf(report) === 'resolved').length,
+    pending: reports.filter((r) => statusOf(r) === 'pending').length,
+    reviewed: reports.filter((r) => statusOf(r) === 'reviewed').length,
+    resolved: reports.filter((r) => statusOf(r) === 'resolved').length,
   }
 
-  const setStatus = (id: string, status: Report['status']) =>
+  const setStatus = async (id: string, status: Report['status']) => {
+    await updateReportStatus(id, status)
     setStatuses((previous) => ({ ...previous, [id]: status }))
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-streamly-purple" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -143,26 +163,13 @@ export function AdminReports() {
       <div className="space-y-3">
         {rows.map((report) => {
           const status = statusOf(report)
-          const reporter = report.reporter ?? profileById(report.reporterId)
-          const targetMovie =
-            report.targetType === 'comment'
-              ? getMovieById(report.targetId.startsWith('c') ? 'm7' : 'm1')
-              : undefined
 
           return (
             <article key={report.id} className="premium-card p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                {reporter?.avatarUrl ? (
-                  <img
-                    src={reporter.avatarUrl}
-                    alt=""
-                    className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-white/12"
-                  />
-                ) : (
-                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-streamly-surface text-streamly-text-muted">
-                    <Flag className="h-4 w-4" />
-                  </span>
-                )}
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-streamly-surface text-streamly-text-muted">
+                  <Flag className="h-4 w-4" />
+                </span>
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -200,17 +207,11 @@ export function AdminReports() {
                     <span>
                       Reported by{' '}
                       <span className="font-semibold text-streamly-text-secondary">
-                        @{reporter?.username ?? 'unknown'}
+                        @{report.reporter?.username ?? 'unknown'}
                       </span>
                     </span>
                     <span>·</span>
                     <span>{timeAgo(report.createdAt)}</span>
-                    {targetMovie ? (
-                      <>
-                        <span>·</span>
-                        <span>{targetMovie.title}</span>
-                      </>
-                    ) : null}
                   </div>
                 </div>
 
@@ -218,7 +219,7 @@ export function AdminReports() {
                   {status !== 'resolved' ? (
                     <button
                       type="button"
-                      onClick={() => setStatus(report.id, 'resolved')}
+                      onClick={() => void setStatus(report.id, 'resolved')}
                       className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-streamly-success/30 bg-streamly-success/10 px-3 text-xs font-semibold text-streamly-success transition-all duration-300 hover:-translate-y-0.5 hover:bg-streamly-success/18"
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
@@ -228,7 +229,7 @@ export function AdminReports() {
                   {status === 'pending' ? (
                     <button
                       type="button"
-                      onClick={() => setStatus(report.id, 'reviewed')}
+                      onClick={() => void setStatus(report.id, 'reviewed')}
                       className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-streamly-cyan/30 bg-streamly-cyan/10 px-3 text-xs font-semibold text-streamly-cyan transition-all duration-300 hover:-translate-y-0.5 hover:bg-streamly-cyan/18"
                     >
                       <ShieldCheck className="h-3.5 w-3.5" />
@@ -237,7 +238,7 @@ export function AdminReports() {
                   ) : null}
                   <button
                     type="button"
-                    onClick={() => setStatus(report.id, 'resolved')}
+                    onClick={() => void setStatus(report.id, 'resolved')}
                     className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-streamly-border bg-white/3 px-3 text-xs font-semibold text-streamly-text-muted transition-all duration-300 hover:-translate-y-0.5 hover:text-streamly-text"
                   >
                     <X className="h-3.5 w-3.5" />

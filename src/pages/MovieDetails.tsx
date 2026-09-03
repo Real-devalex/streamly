@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -17,16 +17,43 @@ import { MovieGrid } from '@/components/movie/MovieGrid'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useDownload } from '@/context/DownloadContext'
-import { getMovieBySlug, getRelatedMovies } from '@/data/mock-movies'
+import { fetchMovieBySlug, fetchRelatedMovies } from '@/lib/api'
 import { cn, formatFileSize, formatRuntime } from '@/utils/helpers'
+import type { Movie } from '@/types'
 
 export function MovieDetails() {
   const { slug = '' } = useParams()
   const { openDownload } = useDownload()
-  const movie = useMemo(() => getMovieBySlug(slug), [slug])
-  const related = useMemo(() => (movie ? getRelatedMovies(movie, 5) : []), [movie])
+  const [movie, setMovie] = useState<Movie | null>(null)
+  const [related, setRelated] = useState<Movie[]>([])
+  const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [shareHint, setShareHint] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      const found = await fetchMovieBySlug(slug)
+      if (cancelled) return
+      setMovie(found)
+      if (found) {
+        const rel = await fetchRelatedMovies(found, 5)
+        if (!cancelled) setRelated(rel)
+      }
+      if (!cancelled) setLoading(false)
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [slug])
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-streamly-purple border-t-transparent" />
+      </div>
+    )
+  }
 
   if (!movie) {
     return (

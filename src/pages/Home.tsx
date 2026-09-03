@@ -16,25 +16,49 @@ import { useDownload } from '@/context/DownloadContext'
 import { MovieGrid } from '@/components/movie/MovieGrid'
 import { MovieCard } from '@/components/movie/MovieCard'
 import { SectionHeader } from '@/components/ui/SectionHeader'
-import {
-  getFeaturedMovies,
-  getGenreCount,
-  getLatestMovies,
-  getTopRatedMovies,
-  getTrendingMovies,
-  genres,
-} from '@/data/mock-movies'
+import { fetchFeaturedMovies, fetchTrendingMovies, fetchLatestMovies, fetchTopRatedMovies, fetchGenres, getGenreMovieCount, fetchFeaturedSeries } from '@/lib/api'
 import { cn, formatRuntime } from '@/utils/helpers'
+import type { Movie, Genre, Series } from '@/types'
 
 const ROTATE_MS = 8000
 
 export function Home() {
   const navigate = useNavigate()
   const { openDownload } = useDownload()
-  const featured = useMemo(() => getFeaturedMovies(), [])
-  const trending = useMemo(() => getTrendingMovies(6), [])
-  const latest = useMemo(() => getLatestMovies(6), [])
-  const topRated = useMemo(() => getTopRatedMovies(8), [])
+
+  const [featured, setFeatured] = useState<Movie[]>([])
+  const [trending, setTrending] = useState<Movie[]>([])
+  const [latest, setLatest] = useState<Movie[]>([])
+  const [topRated, setTopRated] = useState<Movie[]>([])
+  const [genreList, setGenreList] = useState<Genre[]>([])
+  const [genreCounts, setGenreCounts] = useState<Record<string, number>>({})
+  const [trendingSeries, setTrendingSeries] = useState<Series[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      const [f, t, l, tr, g, ts] = await Promise.all([
+        fetchFeaturedMovies(),
+        fetchTrendingMovies(6),
+        fetchLatestMovies(6),
+        fetchTopRatedMovies(8),
+        fetchGenres(),
+        fetchFeaturedSeries(6),
+      ])
+      setFeatured(f)
+      setTrending(t)
+      setLatest(l)
+      setTopRated(tr)
+      setGenreList(g)
+      setTrendingSeries(ts)
+
+      const counts: Record<string, number> = {}
+      await Promise.all(g.map(async (genre) => { counts[genre.slug] = await getGenreMovieCount(genre.slug) }))
+      setGenreCounts(counts)
+      setLoading(false)
+    }
+    void load()
+  }, [])
 
   const [heroIndex, setHeroIndex] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -58,6 +82,14 @@ export function Home() {
     },
     [navigate, query],
   )
+
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-streamly-purple border-t-transparent" />
+      </div>
+    )
+  }
 
   if (!active) return null
 
@@ -156,13 +188,13 @@ export function Home() {
 
             {/* Genres */}
             <div key={`genres-${active.id}`} className="mt-5 flex animate-fade-up flex-wrap gap-2">
-              {active.genres.map((genre) => (
+              {active.genres.map((g) => (
                 <Link
-                  key={genre.id}
-                  to={`/genre/${genre.slug}`}
+                  key={g.id}
+                  to={`/genre/${g.slug}`}
                   className="rounded-full border border-white/12 bg-black/35 px-3 py-1.5 text-xs font-medium text-streamly-text-secondary backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:border-streamly-purple/50 hover:text-streamly-text"
                 >
-                  {genre.icon} {genre.name}
+                  {g.icon} {g.name}
                 </Link>
               ))}
             </div>
@@ -306,37 +338,37 @@ export function Home() {
         />
 
         <div className="stagger-children grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
-          {genres.map((genre) => (
+          {genreList.map((g) => (
             <Link
-              key={genre.id}
-              to={`/genre/${genre.slug}`}
+              key={g.id}
+              to={`/genre/${g.slug}`}
               className="group relative overflow-hidden rounded-card border border-streamly-border bg-streamly-card p-5 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-2 hover:border-transparent"
               style={{
-                backgroundImage: `radial-gradient(120% 120% at 0% 0%, ${genre.color}1f 0%, transparent 60%)`,
+                backgroundImage: `radial-gradient(120% 120% at 0% 0%, ${g.color}1f 0%, transparent 60%)`,
               }}
             >
               <span
                 className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
                 style={{
-                  backgroundImage: `radial-gradient(120% 120% at 100% 100%, ${genre.color}33 0%, transparent 65%)`,
+                  backgroundImage: `radial-gradient(120% 120% at 100% 100%, ${g.color}33 0%, transparent 65%)`,
                 }}
               />
               <span
                 className="absolute inset-x-0 bottom-0 h-px scale-x-0 transition-transform duration-500 group-hover:scale-x-100"
-                style={{ background: `linear-gradient(90deg, transparent, ${genre.color}, transparent)` }}
+                style={{ background: `linear-gradient(90deg, transparent, ${g.color}, transparent)` }}
               />
 
               <div className="relative flex items-start justify-between">
                 <span className="text-3xl transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-125">
-                  {genre.icon}
+                  {g.icon}
                 </span>
                 <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[11px] font-semibold text-streamly-text-secondary">
-                  {getGenreCount(genre.slug)} titles
+                  {genreCounts[g.slug] ?? 0} titles
                 </span>
               </div>
 
               <h3 className="relative mt-6 text-lg font-bold tracking-tight text-streamly-text">
-                {genre.name}
+                {g.name}
               </h3>
               <p className="relative mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-streamly-text-muted transition-colors group-hover:text-streamly-text">
                 Explore
@@ -346,6 +378,51 @@ export function Home() {
           ))}
         </div>
       </section>
+
+      {/* ══════════════ TRENDING SERIES ══════════════ */}
+      {trendingSeries.length > 0 && (
+        <section className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">
+          <SectionHeader
+            eyebrow="Binge-worthy"
+            title="Trending series"
+            subtitle="Original shows and must-watch seasons."
+            actionLabel="All series"
+            actionTo="/series"
+          />
+          <div className="stagger-children grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {trendingSeries.map((s) => (
+              <Link
+                key={s.id}
+                to={`/series/${s.slug}`}
+                className="group relative overflow-hidden rounded-xl bg-neutral-900 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/10"
+              >
+                <div className="aspect-[2/3] overflow-hidden">
+                  <img
+                    src={s.posterUrl || `https://placehold.co/400x600/1a1a2e/6366f1?text=${encodeURIComponent(s.title)}`}
+                    alt={s.title}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+                      <Play className="h-5 w-5 text-white fill-white" />
+                    </div>
+                  </div>
+                  <div className="absolute top-2 right-2 flex items-center gap-1 rounded-lg bg-black/70 px-2 py-1">
+                    <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
+                    <span className="text-xs font-semibold text-white">{s.rating.toFixed(1)}</span>
+                  </div>
+                </div>
+                <div className="p-3">
+                  <h3 className="truncate text-sm font-semibold text-white group-hover:text-purple-300">{s.title}</h3>
+                  <p className="text-xs text-neutral-500">{s.totalSeasons} Season{s.totalSeasons !== 1 ? 's' : ''}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ══════════════ TOP RATED ══════════════ */}
       <section className="relative mx-auto mt-24 max-w-[1600px] px-4 sm:px-6 lg:px-10">

@@ -18,6 +18,7 @@ import { cn, getInitials } from '@/utils/helpers'
 const links = [
   { to: '/', label: 'Home' },
   { to: '/movies', label: 'Movies' },
+  { to: '/series', label: 'Series' },
   { to: '/genres', label: 'Genres' },
   { to: '/movies?sort=rating', label: 'Top Rated' },
 ]
