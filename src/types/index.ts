@@ -3,6 +3,8 @@
  * These mirror the Supabase schema in `supabase/migrations/001_initial_schema.sql`.
  */
 
+export type ContentStatus = 'draft' | 'upcoming' | 'published' | 'archived'
+
 export interface Movie {
   id: string
   title: string
@@ -17,7 +19,7 @@ export interface Movie {
   genres: Genre[]
   cast: CastMember[]
   downloadLinks: DownloadLink[]
-  status: 'draft' | 'published' | 'archived'
+  status: ContentStatus
   featured: boolean
   createdAt: string
 }
@@ -94,10 +96,12 @@ export interface Report {
   reporter?: Profile
 }
 
+export type NotificationType = 'new_movie' | 'new_series' | 'reply' | 'reaction' | 'mention'
+
 export interface Notification {
   id: string
   userId: string
-  type: 'reaction' | 'reply' | 'mention'
+  type: NotificationType
   title: string
   message: string
   read: boolean
@@ -117,7 +121,7 @@ export interface Series {
   backdropUrl: string
   trailerUrl?: string
   releaseYear: number
-  status: 'draft' | 'published' | 'archived'
+  status: ContentStatus
   featured: boolean
   rating: number
   totalSeasons: number

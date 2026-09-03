@@ -27,6 +27,9 @@ import {
   updateCastMemberPhoto,
   type MovieInput,
 } from '@/lib/api'
+import { notifyAllUsersOfNewContent } from '@/lib/api'
+import { TMDBSearchModal } from '@/components/tmdb/TMDBSearchModal'
+import type { TmdbDetails } from '@/lib/tmdb'
 import { cn, slugify } from '@/utils/helpers'
 import type { Genre, Movie } from '@/types'
 
@@ -38,6 +41,9 @@ export function AdminMovieForm() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [tmdbOpen, setTmdbOpen] = useState(false)
+  const [tmdbNotice, setTmdbNotice] = useState('')
+  const [originalStatus, setOriginalStatus] = useState<Movie['status']>('draft')
 
   // All available genres
   const [allGenres, setAllGenres] = useState<Genre[]>([])
@@ -89,6 +95,7 @@ export function AdminMovieForm() {
             status: movie.status,
             featured: movie.featured,
           })
+          setOriginalStatus(movie.status)
           setSelectedGenreIds(new Set(movie.genres.map((g) => g.id)))
           setMovieCast(movie.cast.map((c) => ({ castMemberId: c.id, name: c.name, characterName: c.characterName ?? '', photoUrl: c.photoUrl ?? '' })))
           setDownloadLinks(movie.downloadLinks.map((dl) => ({ quality: dl.quality, url: dl.url, fileSizeBytes: dl.fileSizeBytes ?? 0, destinationLabel: dl.destinationLabel })))
@@ -182,6 +189,45 @@ export function AdminMovieForm() {
     setDownloadLinks((prev) => prev.filter((_, i) => i !== index))
   }
 
+  const applyTmdb = async (details: TmdbDetails) => {
+    setForm((prev) => ({
+      ...prev,
+      title: details.title,
+      slug: isEditing ? prev.slug : slugify(details.title),
+      description: details.description || prev.description,
+      posterUrl: details.posterUrl || prev.posterUrl,
+      backdropUrl: details.backdropUrl || prev.backdropUrl,
+      trailerUrl: details.trailerUrl || prev.trailerUrl,
+      releaseYear: details.releaseYear || prev.releaseYear,
+      runtimeMinutes: details.runtimeMinutes || prev.runtimeMinutes,
+      rating: details.rating || prev.rating,
+    }))
+
+    // Map TMDB genre names onto existing Streamly genres.
+    const slugs = new Set(details.genreSlugs)
+    const names = new Set(details.genreNames.map((n) => n.toLowerCase()))
+    const matched = allGenres.filter((g) => slugs.has(g.slug) || names.has(g.name.toLowerCase()))
+    if (matched.length > 0) setSelectedGenreIds(new Set(matched.map((g) => g.id)))
+
+    // Cast — reuse existing members where possible, otherwise create them.
+    const nextCast: Array<{ castMemberId: string; name: string; characterName: string; photoUrl: string }> = []
+    for (const member of details.cast) {
+      const existing = (await searchCastMembers(member.name)).find(
+        (r) => r.name.toLowerCase() === member.name.toLowerCase(),
+      )
+      const created = existing ?? (await createCastMember(member.name))
+      nextCast.push({
+        castMemberId: created?.id ?? `temp-${member.name}`,
+        name: member.name,
+        characterName: member.characterName,
+        photoUrl: member.photoUrl,
+      })
+    }
+    if (nextCast.length > 0) setMovieCast(nextCast)
+
+    setTmdbNotice(`Imported “${details.title}” from TMDB — review the fields and save.`)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.title.trim() || !form.slug.trim()) {
@@ -208,10 +254,17 @@ export function AdminMovieForm() {
     }
 
     try {
+      const wasPublished = isEditing && originalStatus === 'published'
+      let savedSlug = input.slug
       if (isEditing && id) {
-        await updateMovie(id, input)
+        const updated = await updateMovie(id, input)
+        savedSlug = updated?.slug ?? savedSlug
       } else {
-        await createMovie(input)
+        const created = await createMovie(input)
+        savedSlug = created?.slug ?? savedSlug
+      }
+      if (input.status === 'published' && !wasPublished) {
+        await notifyAllUsersOfNewContent('movie', input.title, savedSlug)
       }
       // Update cast member photos
       for (const c of movieCast) {
@@ -267,6 +320,36 @@ export function AdminMovieForm() {
         ) : null}
       </div>
 
+      {/* ── TMDB auto-fill ── */}
+      <div className="premium-card relative overflow-hidden p-5 sm:p-6">
+        <div className="aurora -left-10 -top-14 h-40 w-40 bg-streamly-purple/25" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-streamly-purple">Auto-fill</p>
+            <h2 className="mt-1.5 text-base font-bold text-streamly-text">Pull metadata straight from TMDB</h2>
+            <p className="mt-1 text-[13px] text-streamly-text-secondary">
+              Poster, backdrop, synopsis, runtime, rating, genres, trailer and the top 10 cast members.
+            </p>
+          </div>
+          <button type="button" onClick={() => setTmdbOpen(true)} className="btn-primary h-11 px-5 text-sm">
+            🎬 Search TMDB
+          </button>
+        </div>
+        {tmdbNotice ? (
+          <p className="relative mt-4 animate-fade-up rounded-button border border-streamly-success/30 bg-streamly-success/10 px-4 py-2.5 text-[13px] text-streamly-success">
+            {tmdbNotice}
+          </p>
+        ) : null}
+      </div>
+
+      <TMDBSearchModal
+        open={tmdbOpen}
+        kind="movie"
+        initialQuery={form.title}
+        onClose={() => setTmdbOpen(false)}
+        onSelect={(details) => void applyTmdb(details)}
+      />
+
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-8">
         {error ? (
           <div className="rounded-button border border-streamly-error/30 bg-streamly-error/10 px-4 py-3 text-sm text-streamly-error">
@@ -314,6 +397,7 @@ export function AdminMovieForm() {
                 className="h-11 w-full rounded-button border border-streamly-border bg-white/3 px-4 text-sm text-streamly-text focus:border-streamly-purple/60 focus:outline-none focus:ring-2 focus:ring-streamly-purple/20"
               >
                 <option value="draft">Draft</option>
+                <option value="upcoming">Upcoming</option>
                 <option value="published">Published</option>
                 <option value="archived">Archived</option>
               </select>

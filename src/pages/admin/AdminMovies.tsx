@@ -5,15 +5,16 @@ import {
   Loader2,
   Pencil,
   Plus,
+  Rocket,
   Search,
   Star,
   Trash2,
 } from 'lucide-react'
-import { fetchMovies, deleteMovie } from '@/lib/api'
+import { fetchMovies, deleteMovie, updateMovie, notifyAllUsersOfNewContent, type MovieInput } from '@/lib/api'
 import { cn, formatCompact, formatRuntime, hashSeed } from '@/utils/helpers'
 import type { Movie } from '@/types'
 
-const filters = ['all', 'published', 'draft', 'archived'] as const
+const filters = ['all', 'published', 'upcoming', 'draft', 'archived'] as const
 type Filter = (typeof filters)[number]
 
 export function AdminMovies() {
@@ -23,6 +24,7 @@ export function AdminMovies() {
   const [movies, setMovies] = useState<Movie[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [publishing, setPublishing] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -44,6 +46,35 @@ export function AdminMovies() {
       return matchesFilter && matchesQuery
     })
   }, [query, filter, movies])
+
+  const handlePublish = async (movie: Movie) => {
+    setPublishing(movie.id)
+    const input: MovieInput = {
+      title: movie.title,
+      slug: movie.slug,
+      description: movie.description,
+      posterUrl: movie.posterUrl,
+      backdropUrl: movie.backdropUrl,
+      trailerUrl: movie.trailerUrl ?? '',
+      releaseYear: movie.releaseYear,
+      runtimeMinutes: movie.runtimeMinutes ?? 0,
+      rating: movie.rating,
+      status: 'published',
+      featured: movie.featured,
+      genreIds: movie.genres.map((g) => g.id),
+      cast: movie.cast.map((c) => ({ castMemberId: c.id, characterName: c.characterName ?? '', photoUrl: c.photoUrl })),
+      downloadLinks: movie.downloadLinks.map((dl) => ({
+        quality: dl.quality,
+        url: dl.url,
+        fileSizeBytes: dl.fileSizeBytes ?? 0,
+        destinationLabel: dl.destinationLabel,
+      })),
+    }
+    await updateMovie(movie.id, input)
+    await notifyAllUsersOfNewContent('movie', movie.title, movie.slug)
+    setMovies((prev) => prev.map((m) => (m.id === movie.id ? { ...m, status: 'published' } : m)))
+    setPublishing(null)
+  }
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this movie permanently?')) return
@@ -125,7 +156,14 @@ export function AdminMovies() {
             </thead>
             <tbody>
               {rows.map((movie) => (
-                <Row key={movie.id} movie={movie} onDelete={handleDelete} deleting={deleting === movie.id} />
+                <Row
+                  key={movie.id}
+                  movie={movie}
+                  onDelete={handleDelete}
+                  deleting={deleting === movie.id}
+                  onPublish={handlePublish}
+                  publishing={publishing === movie.id}
+                />
               ))}
             </tbody>
           </table>
@@ -151,7 +189,19 @@ export function AdminMovies() {
   )
 }
 
-function Row({ movie, onDelete, deleting }: { movie: Movie; onDelete: (id: string) => void; deleting: boolean }) {
+function Row({
+  movie,
+  onDelete,
+  deleting,
+  onPublish,
+  publishing,
+}: {
+  movie: Movie
+  onDelete: (id: string) => void
+  deleting: boolean
+  onPublish: (movie: Movie) => void
+  publishing: boolean
+}) {
   const navigate = useNavigate()
   const downloads = 40_000 + (hashSeed(movie.id) % 90_000)
 
@@ -188,7 +238,20 @@ function Row({ movie, onDelete, deleting }: { movie: Movie; onDelete: (id: strin
         {formatCompact(downloads)}
       </td>
       <td className="px-5 py-3.5">
-        <StatusBadge status={movie.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={movie.status} />
+          {movie.status === 'upcoming' && movie.downloadLinks.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => onPublish(movie)}
+              disabled={publishing}
+              className="inline-flex items-center gap-1.5 rounded-full border border-streamly-success/35 bg-streamly-success/12 px-2.5 py-1 text-[11px] font-bold text-streamly-success transition-all duration-300 hover:-translate-y-0.5 hover:bg-streamly-success/20 disabled:opacity-50"
+            >
+              {publishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}
+              Publish
+            </button>
+          ) : null}
+        </div>
       </td>
       <td className="px-5 py-3.5">
         <div className="flex items-center justify-end gap-1 opacity-60 transition-opacity group-hover:opacity-100">
@@ -209,8 +272,9 @@ function Row({ movie, onDelete, deleting }: { movie: Movie; onDelete: (id: strin
 function StatusBadge({ status }: { status: Movie['status'] }) {
   const tones = {
     published: 'border-streamly-success/30 bg-streamly-success/10 text-streamly-success',
-    draft: 'border-streamly-warning/30 bg-streamly-warning/10 text-streamly-warning',
-    archived: 'border-streamly-border-light bg-white/5 text-streamly-text-muted',
+    upcoming: 'border-streamly-warning/40 bg-streamly-warning/12 text-streamly-warning',
+    draft: 'border-streamly-border-light bg-white/6 text-streamly-text-secondary',
+    archived: 'border-streamly-error/30 bg-streamly-error/10 text-streamly-error',
   }
   return (
     <span

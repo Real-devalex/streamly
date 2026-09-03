@@ -98,9 +98,10 @@ export function AdminSeries() {
                   </td>
                   <td className="px-5 py-3">
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      s.status === 'published' ? 'bg-green-500/15 text-green-400' :
-                      s.status === 'draft' ? 'bg-yellow-500/15 text-yellow-400' :
-                      'bg-neutral-500/15 text-neutral-400'
+                      s.status === 'published' ? 'bg-streamly-success/15 text-streamly-success' :
+                      s.status === 'upcoming' ? 'bg-streamly-warning/15 text-streamly-warning' :
+                      s.status === 'archived' ? 'bg-streamly-error/15 text-streamly-error' :
+                      'bg-white/8 text-streamly-text-secondary'
                     }`}>
                       {s.status}
                     </span>

@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import logoImg from '@/assets/logo/streamly-logo.png'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { useAuth } from '@/context/AuthContext'
 import { cn, getInitials } from '@/utils/helpers'
 
@@ -136,6 +137,8 @@ export function Navbar() {
             >
               <Search className="h-[18px] w-[18px]" />
             </Link>
+
+            <NotificationBell />
 
             {isAuthenticated ? (
               <div className="relative">

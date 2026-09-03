@@ -25,6 +25,7 @@ export function Movies() {
 
   const sort = (params.get('sort') as SortKey | null) ?? 'latest'
   const activeGenre = params.get('genre')
+  const activeStatus = (params.get('status') as 'all' | 'upcoming' | 'published' | null) ?? 'all'
 
   useEffect(() => {
     async function load() {
@@ -37,7 +38,11 @@ export function Movies() {
   }, [])
 
   const filtered = useMemo(() => {
-    let list: Movie[] = [...allMovies]
+    let list: Movie[] = allMovies.filter((movie) =>
+      movie.status === 'published' || movie.status === 'upcoming',
+    )
+    if (activeStatus === 'upcoming') list = list.filter((movie) => movie.status === 'upcoming')
+    else if (activeStatus === 'published') list = list.filter((movie) => movie.status === 'published')
     if (activeGenre) {
       list = list.filter((movie) => movie.genres.some((genre) => genre.slug === activeGenre))
     }
@@ -57,7 +62,7 @@ export function Movies() {
         )
     }
     return list
-  }, [sort, activeGenre, allMovies])
+  }, [sort, activeGenre, activeStatus, allMovies])
 
   const updateParam = (key: string, value: string | null) => {
     const next = new URLSearchParams(params)
@@ -125,6 +130,29 @@ export function Movies() {
                     {genre.icon}
                   </span>
                   {genre.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Status */}
+            <div className="flex shrink-0 items-center gap-1 rounded-full border border-streamly-border bg-white/3 p-1">
+              {([
+                { key: 'all', label: 'All' },
+                { key: 'published', label: 'Available' },
+                { key: 'upcoming', label: 'Coming soon' },
+              ] as const).map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => updateParam('status', option.key === 'all' ? null : option.key)}
+                  className={cn(
+                    'rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-300',
+                    activeStatus === option.key
+                      ? 'bg-gradient-to-r from-streamly-purple to-streamly-indigo text-white shadow-[0_10px_26px_-14px_rgba(139,92,246,0.95)]'
+                      : 'text-streamly-text-muted hover:text-streamly-text',
+                  )}
+                >
+                  {option.label}
                 </button>
               ))}
             </div>

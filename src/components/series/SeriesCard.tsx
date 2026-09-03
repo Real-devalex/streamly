@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Play, Star, Tv } from 'lucide-react'
+import { Clock, Play, Star, Tv } from 'lucide-react'
 import type { Series } from '@/types'
+import { cn } from '@/utils/helpers'
 
 interface Props {
   series: Series
@@ -8,68 +10,127 @@ interface Props {
 }
 
 export default function SeriesCard({ series, priority }: Props) {
-  const poster = series.posterUrl || `https://placehold.co/400x600/1a1a2e/6366f1?text=${encodeURIComponent(series.title)}`
+  const [loaded, setLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const isUpcoming = series.status === 'upcoming'
 
   return (
     <Link
       to={`/series/${series.slug}`}
-      className="group relative block overflow-hidden rounded-xl bg-neutral-900 shadow-lg transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/10 hover:-translate-y-1"
+      aria-label={`View ${series.title}`}
+      className="block focus-visible:outline-none"
     >
-      <div className="aspect-[2/3] overflow-hidden">
-        <img
-          src={poster}
-          alt={series.title}
-          loading={priority ? 'eager' : 'lazy'}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-        />
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-
-        {/* Play button */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm border border-white/30 transition-transform duration-300 group-hover:scale-110">
-            <Play className="h-6 w-6 text-white fill-white" />
-          </div>
-        </div>
-
-        {/* Rating badge */}
-        <div className="absolute top-3 right-3 flex items-center gap-1 rounded-lg bg-black/70 backdrop-blur-sm px-2 py-1">
-          <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
-          <span className="text-xs font-semibold text-white">{series.rating.toFixed(1)}</span>
-        </div>
-
-        {/* Series badge */}
-        <div className="absolute top-3 left-3 flex items-center gap-1 rounded-lg bg-purple-600/80 backdrop-blur-sm px-2 py-1">
-          <Tv className="h-3 w-3 text-white" />
-          <span className="text-xs font-semibold text-white">Series</span>
-        </div>
-
-        {/* Seasons count */}
-        {series.totalSeasons > 0 && (
-          <div className="absolute bottom-3 right-3 rounded-lg bg-black/70 backdrop-blur-sm px-2 py-1">
-            <span className="text-xs text-neutral-300">
-              {series.totalSeasons} Season{series.totalSeasons !== 1 ? 's' : ''}
-            </span>
-          </div>
+      <article
+        className={cn(
+          'group relative isolate overflow-hidden rounded-card bg-streamly-card',
+          'border border-white/6 shadow-[0_10px_30px_-20px_rgba(0,0,0,0.9)]',
+          'transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          'hover:-translate-y-2 hover:border-streamly-purple/45',
+          'hover:shadow-[0_30px_60px_-28px_rgba(139,92,246,0.75)]',
         )}
-      </div>
+      >
+        <div className="relative aspect-[2/3] w-full overflow-hidden bg-streamly-surface">
+          {!loaded && !failed ? <div className="skeleton absolute inset-0" aria-hidden="true" /> : null}
 
-      {/* Info */}
-      <div className="p-3">
-        <h3 className="truncate text-sm font-semibold text-white group-hover:text-purple-300 transition-colors">
-          {series.title}
-        </h3>
-        <div className="mt-1 flex items-center gap-2">
-          {series.releaseYear > 0 && (
-            <span className="text-xs text-neutral-400">{series.releaseYear}</span>
+          {failed || !series.posterUrl ? (
+            <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-streamly-blue/30 via-streamly-indigo/25 to-streamly-purple/20">
+              <span className="text-6xl font-black tracking-tighter text-white/25">
+                {series.title.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          ) : (
+            <img
+              src={series.posterUrl}
+              alt={`${series.title} poster`}
+              loading={priority ? 'eager' : 'lazy'}
+              decoding="async"
+              onLoad={() => setLoaded(true)}
+              onError={() => setFailed(true)}
+              className={cn(
+                'h-full w-full object-cover transition-all duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)]',
+                'group-hover:scale-[1.09] group-hover:brightness-[0.62]',
+                loaded ? 'opacity-100 blur-0' : 'opacity-0 blur-xl',
+              )}
+            />
           )}
-          {series.genres.length > 0 && (
-            <span className="truncate text-xs text-neutral-500">
-              {series.genres.slice(0, 2).map((g) => g.name).join(', ')}
+
+          {/* Scrims */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/75 via-black/25 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-streamly-black via-streamly-black/55 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+
+          {/* Light sweep */}
+          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-700 group-hover:opacity-100">
+            <div className="absolute -inset-y-8 -left-1/3 w-1/2 rotate-12 bg-gradient-to-r from-transparent via-white/12 to-transparent blur-md transition-transform duration-[1200ms] ease-out group-hover:translate-x-[320%]" />
+          </div>
+
+          {/* Series chip */}
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full border border-streamly-purple/40 bg-black/55 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-streamly-purple backdrop-blur-md">
+            <Tv className="h-3 w-3" />
+            Series
+          </span>
+
+          {/* Rating / upcoming */}
+          {isUpcoming ? (
+            <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-streamly-warning/40 bg-black/60 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-streamly-warning backdrop-blur-md">
+              <Clock className="h-3 w-3" />
+              Soon
+            </span>
+          ) : (
+            <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/12 bg-black/55 px-2.5 py-1 text-[11px] font-bold text-streamly-gold backdrop-blur-md">
+              <Star className="h-3 w-3 fill-streamly-gold text-streamly-gold" />
+              {series.rating.toFixed(1)}
             </span>
           )}
+
+          {/* Play */}
+          {!isUpcoming ? (
+            <div className="absolute inset-0 grid place-items-center">
+              <span
+                className={cn(
+                  'grid h-14 w-14 place-items-center rounded-full text-white',
+                  'bg-gradient-to-br from-streamly-purple via-streamly-indigo to-streamly-blue',
+                  'shadow-[0_10px_40px_-6px_rgba(139,92,246,0.9)] ring-1 ring-white/25',
+                  'scale-50 opacity-0 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
+                  'group-hover:scale-100 group-hover:opacity-100',
+                )}
+              >
+                <Play className="ml-0.5 h-5 w-5 fill-current" />
+              </span>
+            </div>
+          ) : null}
+
+          {/* Hover detail */}
+          <div className="absolute inset-x-0 bottom-0 translate-y-3 p-4 opacity-0 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-y-0 group-hover:opacity-100">
+            <p className="line-clamp-2 text-[13px] font-medium leading-snug text-streamly-text-secondary">
+              {series.description}
+            </p>
+          </div>
+
+          {series.totalSeasons > 0 ? (
+            <span className="absolute bottom-3 right-3 rounded-full border border-white/12 bg-black/55 px-2.5 py-1 text-[10px] font-semibold text-streamly-text-secondary backdrop-blur-md transition-opacity duration-300 group-hover:opacity-0">
+              {series.totalSeasons} season{series.totalSeasons !== 1 ? 's' : ''}
+            </span>
+          ) : null}
         </div>
-      </div>
+
+        {/* Meta */}
+        <div className="px-3.5 pb-3.5 pt-3">
+          <h3 className="truncate text-[15px] font-semibold text-streamly-text transition-colors duration-300 group-hover:text-streamly-purple">
+            {series.title}
+          </h3>
+          <div className="mt-1 flex items-center gap-2 text-xs text-streamly-text-muted">
+            {series.releaseYear > 0 ? <span>{series.releaseYear}</span> : null}
+            {series.genres.length > 0 ? (
+              <>
+                <span className="h-1 w-1 rounded-full bg-streamly-text-muted/60" />
+                <span className="truncate">
+                  {series.genres.slice(0, 2).map((g) => g.name).join(' · ')}
+                </span>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </article>
     </Link>
   )
 }

@@ -86,6 +86,7 @@ export function MovieDetails() {
   }
 
   const best = movie.downloadLinks[0]
+  const isUpcoming = movie.status === 'upcoming'
 
   return (
     <div className="pb-10">
@@ -136,7 +137,11 @@ export function MovieDetails() {
                   Streamly Original
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-black/40 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-streamly-text-secondary backdrop-blur-md">
-                  {movie.status === 'published' ? 'Available now' : movie.status}
+                  {movie.status === 'published'
+                    ? 'Available now'
+                    : movie.status === 'upcoming'
+                      ? '🎬 Coming soon'
+                      : movie.status}
                 </span>
               </div>
 
@@ -183,17 +188,24 @@ export function MovieDetails() {
 
               {/* Actions */}
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => openDownload(movie)}
-                  className="btn-primary h-13 px-7 text-[15px]"
-                >
-                  <Download className="h-4 w-4" />
-                  Download {best?.quality}
-                  <span className="ml-1 text-[11px] font-medium opacity-75">
-                    {formatFileSize(best?.fileSizeBytes)}
+                {isUpcoming ? (
+                  <span className="inline-flex h-13 items-center gap-2 rounded-button border border-streamly-warning/40 bg-streamly-warning/10 px-7 text-[15px] font-bold text-streamly-warning">
+                    <Clock className="h-4 w-4 animate-spin-slow" />
+                    Releasing {movie.releaseYear}
                   </span>
-                </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openDownload(movie)}
+                    className="btn-primary h-13 px-7 text-[15px]"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download {best?.quality}
+                    <span className="ml-1 text-[11px] font-medium opacity-75">
+                      {formatFileSize(best?.fileSizeBytes)}
+                    </span>
+                  </button>
+                )}
 
                 {movie.trailerUrl ? (
                   <a

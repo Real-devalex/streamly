@@ -6,8 +6,11 @@ import {
 import {
   fetchSeriesById, createSeries, updateSeries,
   fetchGenres, searchCastMembers, createCastMember,
+  notifyAllUsersOfNewContent,
 } from '@/lib/api'
-import type { Genre, CastMember } from '@/types'
+import { TMDBSearchModal } from '@/components/tmdb/TMDBSearchModal'
+import type { TmdbDetails } from '@/lib/tmdb'
+import type { ContentStatus, Genre, CastMember } from '@/types'
 
 interface CastEntry { castMemberId: string; characterName: string; name: string }
 
@@ -24,7 +27,11 @@ export function AdminSeriesForm() {
   const [trailerUrl, setTrailerUrl] = useState('')
   const [releaseYear, setReleaseYear] = useState(new Date().getFullYear())
   const [rating, setRating] = useState(7.0)
-  const [status, setStatus] = useState<'draft' | 'published' | 'archived'>('draft')
+  const [status, setStatus] = useState<ContentStatus>('draft')
+  const [originalStatus, setOriginalStatus] = useState<ContentStatus>('draft')
+  const [tmdbOpen, setTmdbOpen] = useState(false)
+  const [tmdbNotice, setTmdbNotice] = useState('')
+  const [totalSeasons, setTotalSeasons] = useState(0)
   const [featured, setFeatured] = useState(false)
 
   const [allGenres, setAllGenres] = useState<Genre[]>([])
@@ -63,6 +70,8 @@ export function AdminSeriesForm() {
       setReleaseYear(s.releaseYear)
       setRating(s.rating)
       setStatus(s.status)
+      setOriginalStatus(s.status)
+      setTotalSeasons(s.totalSeasons)
       setFeatured(s.featured)
       setSelectedGenreIds(new Set(s.genres.map((g) => g.id)))
       setCastEntries(s.cast.map((c) => ({
@@ -114,6 +123,39 @@ export function AdminSeriesForm() {
     ))
   }
 
+  const applyTmdb = async (details: TmdbDetails) => {
+    setTitle(details.title)
+    if (!isEditing) setSlug(details.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))
+    if (details.description) setDescription(details.description)
+    if (details.posterUrl) setPosterUrl(details.posterUrl)
+    if (details.backdropUrl) setBackdropUrl(details.backdropUrl)
+    if (details.trailerUrl) setTrailerUrl(details.trailerUrl)
+    if (details.releaseYear) setReleaseYear(details.releaseYear)
+    if (details.rating) setRating(details.rating)
+    if (details.totalSeasons) setTotalSeasons(details.totalSeasons)
+
+    const slugs = new Set(details.genreSlugs)
+    const names = new Set(details.genreNames.map((n) => n.toLowerCase()))
+    const matched = allGenres.filter((g) => slugs.has(g.slug) || names.has(g.name.toLowerCase()))
+    if (matched.length > 0) setSelectedGenreIds(new Set(matched.map((g) => g.id)))
+
+    const entries: CastEntry[] = []
+    for (const member of details.cast) {
+      const existing = (await searchCastMembers(member.name)).find(
+        (r) => r.name.toLowerCase() === member.name.toLowerCase(),
+      )
+      const created = existing ?? (await createCastMember(member.name))
+      entries.push({
+        castMemberId: created?.id ?? `temp-${member.name}`,
+        characterName: member.characterName,
+        name: member.name,
+      })
+    }
+    if (entries.length > 0) setCastEntries(entries)
+
+    setTmdbNotice(`Imported “${details.title}” from TMDB — review the fields and save.`)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
@@ -128,6 +170,15 @@ export function AdminSeriesForm() {
     const result = isEditing && id
       ? await updateSeries(id, input)
       : await createSeries(input)
+
+    if (result && status === 'published' && originalStatus !== 'published') {
+      await notifyAllUsersOfNewContent(
+        'series',
+        result.title,
+        result.slug,
+        totalSeasons > 0 ? `Season ${totalSeasons}` : undefined,
+      )
+    }
 
     setSaving(false)
     if (result) navigate('/admin/series')
@@ -150,6 +201,36 @@ export function AdminSeriesForm() {
       >
         <ArrowLeft className="h-4 w-4" /> Back to series
       </button>
+
+      {/* TMDB auto-fill */}
+      <section className="premium-card relative overflow-hidden p-5 sm:p-6">
+        <div className="aurora -left-10 -top-14 h-40 w-40 bg-streamly-blue/25" />
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-streamly-purple">Auto-fill</p>
+            <h2 className="mt-1.5 text-base font-bold text-streamly-text">Import this series from TMDB</h2>
+            <p className="mt-1 text-[13px] text-streamly-text-secondary">
+              Artwork, synopsis, seasons, rating, genres, trailer and top billed cast.
+            </p>
+          </div>
+          <button type="button" onClick={() => setTmdbOpen(true)} className="btn-primary h-11 px-5 text-sm">
+            🎬 Search TMDB
+          </button>
+        </div>
+        {tmdbNotice ? (
+          <p className="relative mt-4 animate-fade-up rounded-button border border-streamly-success/30 bg-streamly-success/10 px-4 py-2.5 text-[13px] text-streamly-success">
+            {tmdbNotice}
+          </p>
+        ) : null}
+      </section>
+
+      <TMDBSearchModal
+        open={tmdbOpen}
+        kind="tv"
+        initialQuery={title}
+        onClose={() => setTmdbOpen(false)}
+        onSelect={(details) => void applyTmdb(details)}
+      />
 
       {/* Basic Info */}
       <section className="space-y-4 rounded-2xl border border-white/8 bg-white/3 p-6">
@@ -210,6 +291,7 @@ export function AdminSeriesForm() {
             className="h-10 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white focus:border-purple-500/60 focus:outline-none"
           >
             <option value="draft">Draft</option>
+            <option value="upcoming">Upcoming</option>
             <option value="published">Published</option>
             <option value="archived">Archived</option>
           </select>
