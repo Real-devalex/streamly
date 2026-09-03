@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Streamly">
+  <defs>
+    <linearGradient id="streamly-icon-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#22d3ee" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="64" height="64" rx="16" fill="url(#streamly-icon-grad)" />
+  <path d="M25.5 21.2c2.6-2.4 6.6-2.9 9.4-1.1 3 1.9 3.6 5.9 1.6 8.7-1.4 2-3.6 3.1-6 3.6-2.6.5-4.6 1.9-4.6 4.1 0 2.4 2.2 3.9 5 3.6 2.2-.2 4.1-1.3 5.3-3" fill="none" stroke="#ffffff" stroke-width="3.6" stroke-linecap="round" opacity="0.95" />
+  <path d="M27 19.5 L47 31.5 L27 43.5 Z" fill="#ffffff" opacity="0.9" />
+</svg>
