@@ -86,7 +86,7 @@ export function Movies() {
         <div className="aurora -top-32 left-1/4 h-72 w-72 bg-streamly-purple/20" />
         <div className="aurora -bottom-24 right-1/4 h-72 w-72 bg-streamly-cyan/12" />
 
-        <div className="relative mx-auto max-w-[1600px] px-4 pb-10 pt-32 sm:px-6 sm:pb-12 lg:px-10">
+        <div className="relative mx-auto max-w-[1600px] px-4 pb-10 pt-44 sm:px-6 sm:pb-12 sm:pt-52 lg:px-10">
           <div className="flex animate-fade-up items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-streamly-purple">
             <Film className="h-3.5 w-3.5 text-streamly-cyan" />
             The library

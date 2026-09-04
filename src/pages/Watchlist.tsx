@@ -24,7 +24,7 @@ export function Watchlist() {
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-3xl px-4 pt-40 text-center sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 pt-44 pb-24 text-center sm:px-6 sm:pt-52">
         <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-streamly-purple/15 text-streamly-purple">
           <Bookmark className="h-7 w-7" />
         </span>
@@ -43,7 +43,7 @@ export function Watchlist() {
     <div className="pb-8">
       <header className="relative overflow-hidden border-b border-streamly-border">
         <div className="aurora -top-40 left-1/2 h-80 w-80 bg-streamly-purple/18" />
-        <div className="relative mx-auto max-w-[1600px] px-4 pb-10 pt-32 sm:px-6 sm:pt-36 lg:px-10">
+        <div className="relative mx-auto max-w-[1600px] px-4 pb-10 pt-44 sm:px-6 sm:pt-52 lg:px-10">
           <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-streamly-purple">
             <Heart className="h-3.5 w-3.5 fill-current text-streamly-cyan" />
             Your collection

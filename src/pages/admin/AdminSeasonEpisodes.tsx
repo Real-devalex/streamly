@@ -7,7 +7,7 @@ import {
 import {
   fetchSeriesById, fetchSeasonsForSeries, createSeason,
   deleteSeason, createEpisode,
-  deleteEpisode,
+  deleteEpisode, fetchSeasonWithEpisodes,
 } from '@/lib/api'
 import { cn } from '@/utils/helpers'
 import type { Series, Season, Episode } from '@/types'
@@ -51,12 +51,14 @@ export function AdminSeasonEpisodes() {
 
   const loadEpisodes = async (seasonId: string) => {
     setLoadingEpisodes(seasonId)
-    const { fetchSeasonWithEpisodes } = await import('@/lib/api')
-    const data = await fetchSeasonWithEpisodes(seasonId)
-    if (data) {
-      setSeasonEpisodes((prev) => ({ ...prev, [seasonId]: data.episodes }))
+    try {
+      const data = await fetchSeasonWithEpisodes(seasonId)
+      if (data) {
+        setSeasonEpisodes((prev) => ({ ...prev, [seasonId]: data.episodes }))
+      }
+    } finally {
+      setLoadingEpisodes(null)
     }
-    setLoadingEpisodes(null)
   }
 
   const toggleSeason = async (seasonId: string) => {

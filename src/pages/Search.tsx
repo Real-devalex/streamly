@@ -43,7 +43,7 @@ export function SearchPage() {
         <div className="aurora -top-40 left-1/3 h-80 w-80 bg-streamly-purple/18" />
         <div className="aurora -bottom-32 right-0 h-80 w-80 bg-streamly-blue/12" />
 
-        <div className="relative mx-auto max-w-4xl px-4 pb-12 pt-32 sm:px-6 sm:pt-36">
+        <div className="relative mx-auto max-w-4xl px-4 pb-12 pt-44 sm:px-6 sm:pt-52">
           <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-streamly-purple">
             <Search className="h-3.5 w-3.5 text-streamly-cyan" />
             Instant search

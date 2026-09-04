@@ -4,7 +4,7 @@ import {
   ArrowLeft, Star, Calendar, Clock, Tv, ChevronDown,
   Play, Download, ExternalLink, Layers, Share2, Users,
 } from 'lucide-react'
-import { fetchSeriesBySlug } from '@/lib/api'
+import { fetchSeriesBySlug, fetchSeasonWithEpisodes } from '@/lib/api'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Reveal } from '@/components/ui/Reveal'
 import type { SeriesWithSeasons, Season, Episode } from '@/types'
@@ -37,14 +37,13 @@ export default function SeriesDetails() {
     if (!expandedSeason || seasonData[expandedSeason]) return
 
     setLoadingEpisodes(true)
-    import('@/lib/api').then(({ fetchSeasonWithEpisodes }) => {
-      fetchSeasonWithEpisodes(expandedSeason).then((seasonWithEps) => {
+    fetchSeasonWithEpisodes(expandedSeason)
+      .then((seasonWithEps) => {
         if (seasonWithEps) {
           setSeasonData((prev) => ({ ...prev, [expandedSeason]: seasonWithEps.episodes }))
         }
-        setLoadingEpisodes(false)
       })
-    })
+      .finally(() => setLoadingEpisodes(false))
   }, [expandedSeason, seasonData])
 
   if (loading) {
@@ -57,7 +56,7 @@ export default function SeriesDetails() {
 
   if (!series) {
     return (
-      <div className="mx-auto max-w-3xl px-4 pt-40 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 pb-24 pt-44 sm:px-6 sm:pt-52">
         <EmptyState
           icon={<Tv className="h-7 w-7" />}
           title="We could not find that series"
