@@ -43,6 +43,7 @@ npm run typecheck
 ```
 VITE_SUPABASE_URL=your-project-url
 VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_TMDB_API_KEY=your-tmdb-api-key   # enables admin TMDB auto-fill
 VITE_APP_NAME=Streamly
 VITE_APP_URL=http://localhost:5173
 ```
@@ -129,6 +130,32 @@ Radii `rounded-card · rounded-button · rounded-modal`
 - Reply / reaction notification triggers
 
 Apply it with `supabase db push`, or paste it into the SQL editor.
+
+**Migration run order.** `004_notifications_and_upcoming.sql` adds an `upcoming`
+value to the `movie_status` / `series_status` enums. Postgres cannot reference a
+new enum value inside the same transaction that creates it (error `55P04`), so the
+read policies that expose upcoming titles live in a separate file:
+
+1. Run `004_notifications_and_upcoming.sql` — wait for it to succeed.
+2. Then run `005_upcoming_policies.sql` as a **separate** execution.
+
+---
+
+## Deployment (Vercel)
+
+The app is a single-page client (`npm run build` → `dist/`). Hosting is configured
+in [`vercel.json`](vercel.json), which:
+
+- runs `npm run build` and serves the `dist` output directory;
+- rewrites every route to `/index.html` so client-side deep links
+  (e.g. `/series/:slug`, `/admin`) never 404 on a hard refresh.
+
+Set these environment variables in **Vercel → Project → Settings → Environment
+Variables**: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_TMDB_API_KEY`.
+
+> ⚠️ **Production builds from `main`.** Merge work into `main` for the production
+> deployment to update — committing to a feature branch alone will not change the
+> live site.
 
 ---
 
