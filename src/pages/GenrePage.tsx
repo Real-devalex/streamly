@@ -53,7 +53,7 @@ export function GenrePage() {
 
   if (!genre) {
     return (
-      <div className="mx-auto max-w-3xl px-4 pt-40 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 pb-24 pt-44 sm:px-6 sm:pt-52">
         <EmptyState
           icon={<Clapperboard className="h-7 w-7" />}
           title="Genre not found"
@@ -83,7 +83,7 @@ export function GenrePage() {
         <div className="aurora -bottom-40 left-1/3 h-72 w-72" style={{ backgroundColor: genre.color, opacity: 0.18 }} />
         <div className="hero-gradient-bottom absolute inset-0 opacity-60" />
 
-        <div className="relative mx-auto max-w-[1600px] px-4 pb-12 pt-32 sm:px-6 sm:pb-14 lg:px-10">
+        <div className="relative mx-auto max-w-[1600px] px-4 pb-12 pt-44 sm:px-6 sm:pb-14 sm:pt-52 lg:px-10">
           <Link
             to="/genres"
             className="group inline-flex items-center gap-2 text-xs font-semibold text-streamly-text-muted transition-colors hover:text-streamly-text"

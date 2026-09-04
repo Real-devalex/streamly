@@ -56,7 +56,7 @@ export function MovieDetails() {
 
   if (!movie) {
     return (
-      <div className="mx-auto max-w-3xl px-4 pt-40 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 pb-24 pt-44 sm:px-6 sm:pt-52">
         <EmptyState
           icon={<Film className="h-7 w-7" />}
           title="We could not find that title"

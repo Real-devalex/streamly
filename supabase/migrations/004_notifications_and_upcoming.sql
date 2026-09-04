@@ -5,19 +5,14 @@
 -- ── 1. Upcoming status ────────────────────────────────────────
 -- Add an 'upcoming' member to the movie/series status enums.
 -- Titles in this state are visible in "Coming Soon" but need no download links.
+--
+-- ⚠️  Postgres cannot use a brand-new enum value in the SAME transaction that
+--     creates it (error 55P04 "unsafe use of new value"). This migration only
+--     ADDS the value. The read policies that reference 'upcoming' live in
+--     005_upcoming_policies.sql — run that file as a SEPARATE execution AFTER
+--     this one commits. Do not merge the two back together.
 alter type movie_status  add value if not exists 'upcoming' before 'published';
 alter type series_status add value if not exists 'upcoming' before 'published';
-
--- Public read policies must also expose upcoming titles.
-drop policy if exists "movies are publicly readable" on public.movies;
-create policy "movies are publicly readable"
-  on public.movies for select
-  using (status in ('published', 'upcoming') or public.is_admin());
-
-drop policy if exists "series are publicly readable" on public.series;
-create policy "series are publicly readable"
-  on public.series for select
-  using (status in ('published', 'upcoming') or public.is_admin());
 
 -- ── 2. Notifications ──────────────────────────────────────────
 create table if not exists public.notifications (
